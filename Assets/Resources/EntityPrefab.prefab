@@ -254,7 +254,10 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: 
   speed: 3
+  entityIntervalCoefficient: 4
+  healthMeter: 100
   hungerMeter: 0
+  reproductionMeter: 0
 --- !u!1 &3924897766580195477
 GameObject:
   m_ObjectHideFlags: 0

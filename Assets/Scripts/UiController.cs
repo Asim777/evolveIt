@@ -10,12 +10,11 @@ public class UiController : MonoBehaviour
     public Sprite playIcon; // Assign the Play icon sprite in the Inspector
     public Sprite pauseIcon; // Assign the Pause icon sprite in the Inspector
     public Button playPauseButton; // Assign the Button in the Inspector
-    public GameObject entityUiPanelPrefab; // Assign the Entity UI Panel in the Inspector
 
     //private Image playPauseButtonBackground;
-    private GameObject entityUiPanel;
     private Image playPauseButtonIcon;
-    private Coroutine entityUiPanelCoroutine;
+    private Coroutine entityStatsPanelCoroutine;
+    public GameObject entityStatsPanel; 
 
     void Awake()
     {
@@ -34,6 +33,8 @@ public class UiController : MonoBehaviour
         // playPauseButtonBackground = playPauseButton.GetComponent<Image>();
         playPauseButtonIcon = playPauseButton.transform.GetChild(0).GetComponent<Image>();
         playPauseButtonIcon.sprite = playIcon;
+        entityStatsPanel = GameObject.Find("ESP");
+        entityStatsPanel.SetActive(false);
     }
 
     public void OnResumePauseButtonClicked()
@@ -66,60 +67,51 @@ public class UiController : MonoBehaviour
         playPauseButtonIcon.sprite = playIcon;
     }
 
-    public void UpdateInfoPanels(TimeSpan timeElapsed, SimualtionSpeed simulationSpeed, int entitiesCount, int foodCount)
-    {
-        TextMeshProUGUI simulationSpeedInfo = GameObject.FindWithTag("SimulationSpeedInfo").GetComponent<TextMeshProUGUI>();
-        TextMeshProUGUI timeElapsedInfo = GameObject.FindWithTag("TimeElapsedInfo").GetComponent<TextMeshProUGUI>();
-        TextMeshProUGUI entitiesInfo = GameObject.FindWithTag("EntitiesInfo").GetComponent<TextMeshProUGUI>();
-        TextMeshProUGUI foodInfo = GameObject.FindWithTag("FoodInfo").GetComponent<TextMeshProUGUI>();
-
-        
+    public void UpdateSimulationInformationPanel(TimeSpan timeElapsed, SimualtionSpeed simulationSpeed, int entitiesCount, int foodCount)
+    {   
         string formattedTimeElapsed = timeElapsed.ToString(@"hh\:mm\:ss");
-        simulationSpeedInfo.text = "Simulation Speed: " + simulationSpeed;
-        timeElapsedInfo.text = "Time Elapsed: " + formattedTimeElapsed;
-        entitiesInfo.text = "Entities: " + entitiesCount;
-        foodInfo.text = "Food: " + foodCount;
+        GameObject.Find("SIP_SimulationSpeed").GetComponent<TextMeshProUGUI>().text = "Simulation Speed: " + simulationSpeed;
+        GameObject.Find("SIP_TimeElapsed").GetComponent<TextMeshProUGUI>().text = "Time Elapsed: " + formattedTimeElapsed;
+        GameObject.Find("SIP_EntitiesCount").GetComponent<TextMeshProUGUI>().text = "Entities: " + entitiesCount;
+        GameObject.Find("SIP_FoodCount").GetComponent<TextMeshProUGUI>().text = "Food: " + foodCount;
     }
 
-    public void ShowEntityUiPanel(EntityController entity)
-    {
-        // Destroy the existing entity UI panel if it exists
-        if (entityUiPanel != null)
-        {
-            Destroy(entityUiPanel);
-            StopCoroutine(entityUiPanelCoroutine);
-            entityUiPanelCoroutine = null;
-        }
-        Vector3 position = entity.transform.position + new Vector3(0, 1, 0);
-        // Instantiate the UI panel and set it as a child of the entity
-        entityUiPanel = Instantiate(entityUiPanelPrefab, position, Quaternion.identity, entity.transform);
-
-        // Start the coroutine to update the entity stats
-        entityUiPanelCoroutine = StartCoroutine(UpdateEntityStats(entity));
-    }
-
-    public void HideEntityUiPanel()
-    {
-        Destroy(entityUiPanel);
-        if (entityUiPanelCoroutine != null)
-        {
-            StopCoroutine(entityUiPanelCoroutine);
-            entityUiPanelCoroutine = null;
-        }
-    }
-
-    private IEnumerator UpdateEntityStats(EntityController entity)
+    private IEnumerator UpdateEntityStatsPanel(EntityController entity)
     {
         while(true)  
         {
-            GameObject entityStatsPanel = entityUiPanel.transform.GetChild(0).Find("Entity Stats Panel").gameObject;
-            entityStatsPanel.transform.Find("Entity Name").GetComponent<TextMeshProUGUI>().text = entity.gameObject.name;
-            entityStatsPanel.transform.Find("Health").GetComponent<TextMeshProUGUI>().text = "Health: " + Math.Round(entity.healthMeter, 2);
-            entityStatsPanel.transform.Find("Hunger").GetComponent<TextMeshProUGUI>().text = "Hunger: " + Math.Round(entity.hungerMeter, 2);
-            entityStatsPanel.transform.Find("Reproduction").GetComponent<TextMeshProUGUI>().text = "Reproduction: " + Math.Round(entity.reproductionMeter, 2);
+            GameObject.Find("ESP_Name").GetComponent<TextMeshProUGUI>().text = entity.gameObject.name;
+            GameObject.Find("ESP_Health").GetComponent<TextMeshProUGUI>().text = "Health: " + Math.Round(entity.healthMeter, 2);
+            GameObject.Find("ESP_Hunger").GetComponent<TextMeshProUGUI>().text = "Hunger: " + Math.Round(entity.hungerMeter, 2);
+            GameObject.Find("ESP_Reproduction").GetComponent<TextMeshProUGUI>().text = "Reproduction: " + Math.Round(entity.reproductionMeter, 2);
 
             yield return new WaitForSeconds(SimulationController.simulationStepInterval);
+        }
+    }
 
+    public void ShowEntityStatsPanel(EntityController entity)
+    {   
+        entityStatsPanel.SetActive(true);
+
+        // Stop the previous coroutine if it is running to avoid updating the wrong entity stats
+        if (entityStatsPanelCoroutine != null)
+        {
+            StopCoroutine(entityStatsPanelCoroutine);
+            entityStatsPanelCoroutine = null;
+        }
+
+        // Start the coroutine to update the entity stats panel
+        entityStatsPanelCoroutine = StartCoroutine(UpdateEntityStatsPanel(entity));
+    }
+
+    public void HideEntityStatsPanel()
+    {
+        entityStatsPanel.SetActive(false);
+
+        if (entityStatsPanelCoroutine != null)
+        {
+            StopCoroutine(entityStatsPanelCoroutine);
+            entityStatsPanelCoroutine = null;
         }
     }
 }

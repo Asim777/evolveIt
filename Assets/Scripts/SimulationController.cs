@@ -22,6 +22,7 @@ public class SimulationController : MonoBehaviour
     private static readonly System.Random rnd = new();
     private readonly List<GameObject> entities = new();
     private readonly List<GameObject> foodItems = new();
+    private GameObject selectedEntity;
     private TimeSpan totalTimeElapsed = TimeSpan.Zero;
     private TimeSpan timeElapsedInCurrentSession = TimeSpan.Zero;
     private DateTime startTime; // Time when the simulation started
@@ -54,6 +55,12 @@ public class SimulationController : MonoBehaviour
                     entity.GetComponent<EntityController>().OnSimulationUpdate();
                 }
             }
+        }
+
+        // Deselect Selected Entity when right mouse button is clicked
+        if (Input.GetMouseButton(1))
+        {
+            DeselectSelectedEntity();
         }
     }
 
@@ -120,6 +127,8 @@ public class SimulationController : MonoBehaviour
     {
         simulationState = SimulationState.Stopped;
 
+        DeselectSelectedEntity();
+
         // Destroy all entities GameObjects
         foreach (GameObject entity in entities)
         {
@@ -146,6 +155,12 @@ public class SimulationController : MonoBehaviour
         Debug.Log("Simulation Stopped.");
     }
 
+    public void RegisterSelectedEntity(GameObject entity)
+    {
+        DeselectSelectedEntity();
+        selectedEntity = entity;    
+    }
+
     private IEnumerator InitializeSimulation()
     {
         // Using Coroutine to spread out the spawning over multiple frames
@@ -163,7 +178,7 @@ public class SimulationController : MonoBehaviour
 
             timeElapsedInCurrentSession = DateTime.Now - startTime;
             TimeSpan timeToDisplay = totalTimeElapsed + timeElapsedInCurrentSession;
-            UiController.Instance.UpdateInfoPanels(timeToDisplay, simulationSpeed, entities.Count, foodItems.Count);
+            UiController.Instance.UpdateSimulationInformationPanel(timeToDisplay, simulationSpeed, entities.Count, foodItems.Count);
 
             // Check if all entities are dead
             if (entities.Count == 0)
@@ -279,6 +294,15 @@ public class SimulationController : MonoBehaviour
                 return false;
             }
         });
+    }
+
+    private void DeselectSelectedEntity()
+    {
+        if (selectedEntity != null)
+        {
+            selectedEntity.GetComponent<EntityController>().DeselectEntity();
+            selectedEntity = null;
+        }
     }
 }
 

@@ -22,7 +22,7 @@ public class EntityController : MonoBehaviour
     private Coroutine incrementHungerMeterCoroutine; // Reference to the coroutine that increments the hunger meter of Entities
     private readonly float hungerImportance = 0.4f; // The importance of hunger for the health of the Entity. The smaller the value, the more important it is
     private readonly float reproductionImportance = 15f; // The importance of reproduction for the health of the Entity. The smaller the value, the more important it is
-
+    private GameObject selectionOutline; 
     void Start()
     {
          // Prevent the Entity from rotating
@@ -67,24 +67,52 @@ public class EntityController : MonoBehaviour
         } else {
             Debug.LogError("Rigidbody2D component not found on Entity." + gameObject.name);
         }
-        transform.rotation = Quaternion.identity;
         
         StopEntityCoroutines();
     }
 
     public void OnDeath() 
     {
+        DeselectEntity();
+        StopEntityCoroutines();
+    }
+
+    public void SelectEntity() 
+    {
+        // Focus on the Entity when it is clicked and show its stats and action buttons
+        SimulationController.Instance.RegisterSelectedEntity(gameObject);
+        CameraController.Instance.FocusOnTarget(gameObject);
+        UiController.Instance.ShowEntityStatsPanel(this);
+
+        // Instantiate the outline and set it as a child of the entity
+        GameObject outlinePrefab = Resources.Load<GameObject>("EntitySelectionOutlinePrefab");
+
+        if (outlinePrefab == null)
+        {
+            Debug.LogError("Entity selection outline prefab is not loaded!");
+            return;
+        }
+
+        selectionOutline = Instantiate(outlinePrefab, transform);
+    }
+
+    public void DeselectEntity()
+    {
         // Stop the Camera from following the Entity
         CameraController.Instance.StopFollowing();
-        UiController.Instance.HideEntityUiPanel();
-        StopEntityCoroutines();
+        UiController.Instance.HideEntityStatsPanel();
+
+        // Destroy the outline
+        if (selectionOutline != null)
+        {
+            Destroy(selectionOutline);
+            selectionOutline = null;
+        }
     }
 
     public void OnMouseDown()
     {
-        // Focus on the Entity when it is clicked and show its stats and action buttons
-        CameraController.Instance.FocusOnTarget(gameObject);
-        UiController.Instance.ShowEntityUiPanel(this);
+        SelectEntity();
     }
 
     private void StartEntityCoroutines() 
@@ -121,13 +149,9 @@ public class EntityController : MonoBehaviour
     {
         while (SimulationController.Instance.simulationState == SimulationState.Running && healthMeter > 0f)
         {
-            // Increase the Entity state meters and reproduction meter 
-            hungerMeter += 10f;
-            reproductionMeter += 1f;
-
-            // Clip the Entity state meters between 0 and 100 to prevent overflow during calculations
-            float hungerMeterClipped = Mathf.Min(hungerMeter, 100f);
-            float reproductionMeterClipped = Mathf.Min(reproductionMeter, 100f);
+            // Increase the Entity state meters and reproduction meter. Cap the meters at 100
+            if (hungerMeter < 100) hungerMeter += 1f;
+            if (reproductionMeter < 100) reproductionMeter += 1f;
             
             // Update healthMeter depending on Entity states.
             // Health dependency on hunger and reproduction is a cubic function (y=ax^{3}+50), where a is the importance of the state for health
@@ -135,13 +159,13 @@ public class EntityController : MonoBehaviour
             double healthChangeFromHunger = 0f;
             double healthChangeFromReproduction = 0f;
 
-            if (hungerMeterClipped > 50) 
+            if (hungerMeter > 50) 
             {
-                healthChangeFromHunger = Math.Cbrt((50 - hungerMeterClipped) / hungerImportance);
+                healthChangeFromHunger = Math.Cbrt((50 - hungerMeter) / hungerImportance);
             }
-            if (reproductionMeterClipped > 50) 
+            if (reproductionMeter > 50) 
             {
-                healthChangeFromReproduction = Math.Cbrt((50 - reproductionMeterClipped) / reproductionImportance);
+                healthChangeFromReproduction = Math.Cbrt((50 - reproductionMeter) / reproductionImportance);
             }
         
             // x = cubic root of (50 - y / a) 

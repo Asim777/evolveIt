@@ -41,11 +41,6 @@ public class CameraController : MonoBehaviour
             targetPosition.z = -10f; // Ensure the camera stays at the correct Z position
             transform.position = Vector3.Lerp(transform.position, targetPosition, followSpeed * Time.deltaTime);
             
-            // Exit following mode when right mouse button is clicked
-            if (Input.GetMouseButton(1))
-            {
-                StopFollowing();
-            }
             HandleCameraZoom();
         } else {
             HandleCameraMovement();
@@ -63,7 +58,6 @@ public class CameraController : MonoBehaviour
     public void StopFollowing()
     {
         target = null;
-        UiController.Instance.HideEntityUiPanel();
     }
 
     private void HandleCameraMovement() 
