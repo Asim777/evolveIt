@@ -1,5 +1,6 @@
 using System.Collections;
 using UnityEngine;
+using UnityEngine.EventSystems;
 
 public class CameraController : MonoBehaviour
 {
@@ -61,7 +62,7 @@ public class CameraController : MonoBehaviour
     }
 
     private void HandleCameraMovement() 
-    {
+    {   
         // Camera movement (using arrow keys or WASD)
         float moveX = Input.GetAxis("Horizontal") * moveSpeed * Time.deltaTime;
         float moveY = Input.GetAxis("Vertical") * moveSpeed * Time.deltaTime;
@@ -80,6 +81,12 @@ public class CameraController : MonoBehaviour
 
     private void HandleCameraDrag() 
     {
+        // Check if the cursor is over a UI element
+        if (EventSystem.current.IsPointerOverGameObject())
+        {
+            return; // Do not process drag logic if the cursor is over a UI element
+        }
+        
         // Start dragging with left or middle mouse button
         if (Input.GetMouseButtonDown(0) || Input.GetMouseButtonDown(2))
         {

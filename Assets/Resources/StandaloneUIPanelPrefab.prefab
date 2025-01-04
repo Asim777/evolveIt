@@ -13,7 +13,7 @@ GameObject:
   - component: {fileID: 3521128470022173457}
   - component: {fileID: 986398904042738231}
   m_Layer: 5
-  m_Name: DynamicUIPanelPrefab
+  m_Name: StandaloneUIPanelPrefab
   m_TagString: Untagged
   m_Icon: {fileID: 0}
   m_NavMeshLayer: 0

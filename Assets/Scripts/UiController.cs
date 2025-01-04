@@ -3,6 +3,7 @@ using UnityEngine.UI;
 using TMPro;
 using System.Collections;
 using System;
+using UnityEngine.XR;
 
 public class UiController : MonoBehaviour
 {
@@ -13,8 +14,13 @@ public class UiController : MonoBehaviour
 
     //private Image playPauseButtonBackground;
     private Image playPauseButtonIcon;
-    private Coroutine entityStatsPanelCoroutine;
     public GameObject entityStatsPanel; 
+
+    private bool isEwpPanelOpen = false;
+    private bool isGipPanelOpen = false;
+    private Coroutine entityStatsPanelCoroutine;
+    private Coroutine updateEntityListCoroutine;
+    private Coroutine updateGeneListCoroutine;
 
     void Awake()
     {
@@ -58,13 +64,28 @@ public class UiController : MonoBehaviour
     
     public void OnStopButtonClicked() {
         SimulationController.Instance.StopSimulation();
-        playPauseButtonIcon.sprite = playIcon;
+        HandleSimulationStop();
     }
 
     // Called when the simulation ends naturally 
     public void OnSimulationEnded()
     {   
-        playPauseButtonIcon.sprite = playIcon;
+        HandleSimulationStop();
+    }
+
+    public void OnEntitiesWatchlistPanelClicked()
+    {
+        GameObject ewpContainer = GameObject.Find("EWP_container");
+        updateEntityListCoroutine = StartCoroutine(UpdateEntityList());
+        ToggleSidebarPanel(ewpContainer, isEwpPanelOpen);
+        isEwpPanelOpen = !isEwpPanelOpen;
+    }
+
+    public void OnGeneticInformationPanelClicked()
+    {
+        GameObject gipContainer = GameObject.Find("GIP_container");
+        ToggleSidebarPanel(gipContainer, isGipPanelOpen);
+        isGipPanelOpen = !isGipPanelOpen;
     }
 
     public void UpdateSimulationInformationPanel(TimeSpan timeElapsed, SimualtionSpeed simulationSpeed, int entitiesCount, int foodCount)
@@ -74,19 +95,6 @@ public class UiController : MonoBehaviour
         GameObject.Find("SIP_TimeElapsed").GetComponent<TextMeshProUGUI>().text = "Time Elapsed: " + formattedTimeElapsed;
         GameObject.Find("SIP_EntitiesCount").GetComponent<TextMeshProUGUI>().text = "Entities: " + entitiesCount;
         GameObject.Find("SIP_FoodCount").GetComponent<TextMeshProUGUI>().text = "Food: " + foodCount;
-    }
-
-    private IEnumerator UpdateEntityStatsPanel(EntityController entity)
-    {
-        while(true)  
-        {
-            GameObject.Find("ESP_Name").GetComponent<TextMeshProUGUI>().text = entity.gameObject.name;
-            GameObject.Find("ESP_Health").GetComponent<TextMeshProUGUI>().text = "Health: " + Math.Round(entity.healthMeter, 2);
-            GameObject.Find("ESP_Hunger").GetComponent<TextMeshProUGUI>().text = "Hunger: " + Math.Round(entity.hungerMeter, 2);
-            GameObject.Find("ESP_Reproduction").GetComponent<TextMeshProUGUI>().text = "Reproduction: " + Math.Round(entity.reproductionMeter, 2);
-
-            yield return new WaitForSeconds(SimulationController.simulationStepInterval);
-        }
     }
 
     public void ShowEntityStatsPanel(EntityController entity)
@@ -113,5 +121,80 @@ public class UiController : MonoBehaviour
             StopCoroutine(entityStatsPanelCoroutine);
             entityStatsPanelCoroutine = null;
         }
+    }
+
+    private void HandleSimulationStop()
+    {
+        playPauseButtonIcon.sprite = playIcon;
+
+        StopAllCoroutines();
+        updateEntityListCoroutine = null;
+        updateGeneListCoroutine = null;
+        entityStatsPanelCoroutine = null;
+    }
+
+    private void ToggleSidebarPanel(GameObject panelContainer, bool isPanelOpen)
+    {
+        RectTransform panelRectTransform = panelContainer.GetComponent<RectTransform>();
+        if (isPanelOpen)
+        {
+            StartCoroutine(SlidePanel(panelRectTransform, panelRectTransform.anchoredPosition, new Vector2(485.48f, panelRectTransform.anchoredPosition.y)));
+        }
+        else
+        {
+            StartCoroutine(SlidePanel(panelRectTransform, panelRectTransform.anchoredPosition, new Vector2(0, panelRectTransform.anchoredPosition.y)));
+        }
+    }
+
+    private IEnumerator SlidePanel(RectTransform panel, Vector2 start, Vector2 end)
+    {
+        float elapsedTime = 0;
+        float duration = 0.1f;
+
+        while (elapsedTime < duration)
+        {
+            panel.anchoredPosition = Vector2.Lerp(start, end, elapsedTime / duration);
+            elapsedTime += Time.deltaTime;
+            yield return null;
+        }
+
+        panel.anchoredPosition = end;
+    }
+
+    private IEnumerator UpdateEntityStatsPanel(EntityController entity)
+    {
+        while(true)  
+        {
+            GameObject.Find("ESP_Name").GetComponent<TextMeshProUGUI>().text = entity.gameObject.name;
+            GameObject.Find("ESP_Health").GetComponent<TextMeshProUGUI>().text = "Health: " + Math.Round(entity.healthMeter, 2);
+            GameObject.Find("ESP_Hunger").GetComponent<TextMeshProUGUI>().text = "Hunger: " + Math.Round(entity.hungerMeter, 2);
+            GameObject.Find("ESP_Reproduction").GetComponent<TextMeshProUGUI>().text = "Reproduction: " + Math.Round(entity.reproductionMeter, 2);
+
+            yield return new WaitForSeconds(SimulationController.simulationStepInterval);
+        }
+    }
+
+    private IEnumerator UpdateEntityList() 
+    {
+        Transform entityListScrollView = GameObject.Find("EWP_EntityListScrollView/Viewport/Content").transform;
+        GameObject entityListItemPrefab = Resources.Load<GameObject>("ListItemPrefab");
+
+        while (isEwpPanelOpen) {
+            // Clear existing list items
+            foreach (Transform child in entityListScrollView)
+            {
+                Destroy(child.gameObject);
+            }
+
+            // Populate the list with new items
+            foreach (GameObject entity in SimulationController.Instance.GetEntities())
+            {
+                GameObject listItem = Instantiate(entityListItemPrefab, entityListScrollView);
+                listItem.transform.Find("ListItem_Text").GetComponent<TextMeshProUGUI>().text = entity.gameObject.name;
+            }
+            yield return new WaitForSeconds(SimulationController.simulationStepInterval);
+        }
+        
+        yield return null;
     }
 }

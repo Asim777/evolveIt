@@ -155,6 +155,11 @@ public class SimulationController : MonoBehaviour
         Debug.Log("Simulation Stopped.");
     }
 
+    public List<GameObject> GetEntities()
+    {
+        return entities;
+    }
+
     public void RegisterSelectedEntity(GameObject entity)
     {
         DeselectSelectedEntity();

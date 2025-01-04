@@ -1,0 +1,9 @@
+Assembly-CSharp.csproj
+.plastic/*
+.vscode/*
+Library/*
+Temp/*
+UserSettings/*
+Logs/*
+ProjectSettings/*
+ProjectSettings/TagManager.asset
