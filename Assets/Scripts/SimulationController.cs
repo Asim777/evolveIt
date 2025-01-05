@@ -1,7 +1,9 @@
 using System;
 using System.Collections;
 using System.Collections.Generic;
+using NUnit.Framework;
 using TMPro;
+using Unity.VisualScripting;
 using UnityEngine;
 using Random = System.Random;
 
@@ -9,7 +11,7 @@ public class SimulationController : MonoBehaviour
 {
     // Public variables
     public static SimulationController Instance  { get; private set; } // Singleton instance for easy access
-    internal static readonly float simulationStepInterval = 1f; // Interval in seconds to evaluate the entities and update the simulation state
+    internal static readonly float simulationStepInterval = 0.5f; // Interval in seconds to evaluate the entities and update the simulation state
     public SimulationState simulationState = SimulationState.Stopped; // State of the simulation
     public SimualtionSpeed simulationSpeed = SimualtionSpeed.Normal; // Speed of the simulation
 
@@ -155,11 +157,6 @@ public class SimulationController : MonoBehaviour
         Debug.Log("Simulation Stopped.");
     }
 
-    public List<GameObject> GetEntities()
-    {
-        return entities;
-    }
-
     public void RegisterSelectedEntity(GameObject entity)
     {
         DeselectSelectedEntity();
@@ -177,6 +174,7 @@ public class SimulationController : MonoBehaviour
 
     private IEnumerator LaunchSimulationJobs()
     {
+        int lastEntitiesCount = 0;
         while (simulationState == SimulationState.Running) 
         { 
             RemoveDeadEntities();
@@ -184,14 +182,20 @@ public class SimulationController : MonoBehaviour
             timeElapsedInCurrentSession = DateTime.Now - startTime;
             TimeSpan timeToDisplay = totalTimeElapsed + timeElapsedInCurrentSession;
             UiController.Instance.UpdateSimulationInformationPanel(timeToDisplay, simulationSpeed, entities.Count, foodItems.Count);
-
-            // Check if all entities are dead
-            if (entities.Count == 0)
+            
+            if (entities.Count != lastEntitiesCount) 
             {
-                Debug.Log("All entities are dead. Stopping simulation.");
-                StopSimulation();
-                UiController.Instance.OnSimulationEnded();
-                yield break;
+                UiController.Instance.UpdateEntitiesWatchlistPanel(entities);
+                lastEntitiesCount = entities.Count;
+                
+                // Check if all entities are dead
+                if (entities.Count == 0)
+                {
+                    Debug.Log("All entities are dead. Stopping simulation.");
+                    StopSimulation();
+                    UiController.Instance.OnSimulationEnded();
+                    yield break;
+                }
             }
 
             yield return new WaitForSeconds(simulationStepInterval);

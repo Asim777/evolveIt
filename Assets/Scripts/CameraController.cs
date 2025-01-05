@@ -73,6 +73,12 @@ public class CameraController : MonoBehaviour
 
     private void HandleCameraZoom() 
     {
+        //  Do not process zoom logic if the cursor is over a UI element
+        if (EventSystem.current.IsPointerOverGameObject())
+        {
+            return;
+        }
+
         // Camera zoom (using mouse scroll wheel)
         float scroll = Input.GetAxis("Mouse ScrollWheel");
         mainCamera.orthographicSize -= scroll * zoomSpeed;

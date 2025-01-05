@@ -4,6 +4,8 @@ using TMPro;
 using System.Collections;
 using System;
 using UnityEngine.XR;
+using System.Collections.Generic;
+using UnityEngine.EventSystems;
 
 public class UiController : MonoBehaviour
 {
@@ -19,8 +21,8 @@ public class UiController : MonoBehaviour
     private bool isEwpPanelOpen = false;
     private bool isGipPanelOpen = false;
     private Coroutine entityStatsPanelCoroutine;
-    private Coroutine updateEntityListCoroutine;
-    private Coroutine updateGeneListCoroutine;
+    //private Coroutine updateEntityListCoroutine;
+    //private Coroutine updateGeneListCoroutine;
 
     void Awake()
     {
@@ -76,7 +78,6 @@ public class UiController : MonoBehaviour
     public void OnEntitiesWatchlistPanelClicked()
     {
         GameObject ewpContainer = GameObject.Find("EWP_container");
-        updateEntityListCoroutine = StartCoroutine(UpdateEntityList());
         ToggleSidebarPanel(ewpContainer, isEwpPanelOpen);
         isEwpPanelOpen = !isEwpPanelOpen;
     }
@@ -123,13 +124,46 @@ public class UiController : MonoBehaviour
         }
     }
 
+    public void UpdateEntitiesWatchlistPanel(List<GameObject> entities) 
+    {
+        Transform entityListScrollView = GameObject.Find("EWP_EntityListScrollView/Viewport/Content").transform;
+        GameObject entityListItemPrefab = Resources.Load<GameObject>("ListItemPrefab");
+        
+        // Clear existing list items
+        foreach (Transform child in entityListScrollView)
+        {
+            Destroy(child.gameObject);
+        }
+        Debug.Log("UpdateEntitiesWatchlistPanel called. Number of entities: " + entities.Count);
+        
+        // Populate the list with new items
+        foreach (GameObject entity in entities)
+        {
+            GameObject listItem = Instantiate(entityListItemPrefab, entityListScrollView);
+            listItem.transform.Find("ListItem_Text").GetComponent<TextMeshProUGUI>().text = entity.gameObject.name;
+
+            // Set up the EventTrigger for click events
+            EventTrigger trigger = listItem.GetComponent<EventTrigger>();
+            if (trigger == null)
+            {
+                trigger = listItem.AddComponent<EventTrigger>();
+            }
+            EventTrigger.Entry entry = new();
+            entry.eventID = EventTriggerType.PointerClick;
+            entry.callback.AddListener((eventData) => { 
+                entity.GetComponent<EntityController>().SelectEntity();    
+                Debug.Log("Entity clicked on list " + entity.name);
+            });
+            trigger.triggers.Add(entry);
+            Debug.Log("Trigger added to " + entity.name);
+        }
+    }
+
     private void HandleSimulationStop()
     {
         playPauseButtonIcon.sprite = playIcon;
 
         StopAllCoroutines();
-        updateEntityListCoroutine = null;
-        updateGeneListCoroutine = null;
         entityStatsPanelCoroutine = null;
     }
 
@@ -172,29 +206,5 @@ public class UiController : MonoBehaviour
 
             yield return new WaitForSeconds(SimulationController.simulationStepInterval);
         }
-    }
-
-    private IEnumerator UpdateEntityList() 
-    {
-        Transform entityListScrollView = GameObject.Find("EWP_EntityListScrollView/Viewport/Content").transform;
-        GameObject entityListItemPrefab = Resources.Load<GameObject>("ListItemPrefab");
-
-        while (isEwpPanelOpen) {
-            // Clear existing list items
-            foreach (Transform child in entityListScrollView)
-            {
-                Destroy(child.gameObject);
-            }
-
-            // Populate the list with new items
-            foreach (GameObject entity in SimulationController.Instance.GetEntities())
-            {
-                GameObject listItem = Instantiate(entityListItemPrefab, entityListScrollView);
-                listItem.transform.Find("ListItem_Text").GetComponent<TextMeshProUGUI>().text = entity.gameObject.name;
-            }
-            yield return new WaitForSeconds(SimulationController.simulationStepInterval);
-        }
-        
-        yield return null;
     }
 }

@@ -4,6 +4,7 @@ using Random = System.Random;
 using UnityEditor.Experimental.GraphView;
 using System;
 using Unity.VisualScripting;
+using UnityEngine.EventSystems;
 
 public class EntityController : MonoBehaviour
 {
@@ -112,6 +113,11 @@ public class EntityController : MonoBehaviour
 
     public void OnMouseDown()
     {
+        //  Do not process click logic if the cursor is over a UI element
+        if (EventSystem.current.IsPointerOverGameObject())
+        {
+            return;
+        }
         SelectEntity();
     }
 
@@ -123,11 +129,14 @@ public class EntityController : MonoBehaviour
 
     private void StopEntityCoroutines()
     {
-        StopCoroutine(updateDirectionCoroutine);
-        updateDirectionCoroutine = null;
-
-        StopCoroutine(incrementHungerMeterCoroutine);
-        incrementHungerMeterCoroutine = null;
+        if (updateDirectionCoroutine != null) {
+            StopCoroutine(updateDirectionCoroutine);
+            updateDirectionCoroutine = null;
+        }
+        if (incrementHungerMeterCoroutine != null) {
+            StopCoroutine(incrementHungerMeterCoroutine);
+            incrementHungerMeterCoroutine = null;
+        }
     }
 
     private IEnumerator UpdateMovementDirection()
