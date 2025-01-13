@@ -1,6 +1,7 @@
 using System;
 using System.Collections;
 using System.Collections.Generic;
+using System.Collections.ObjectModel;
 using NUnit.Framework;
 using TMPro;
 using Unity.VisualScripting;
@@ -22,7 +23,7 @@ public class SimulationController : MonoBehaviour
 
     // Private variables
     private static readonly System.Random rnd = new();
-    private readonly List<GameObject> entities = new();
+    public ObservableCollection<GameObject> entities = new();
     private readonly List<GameObject> foodItems = new();
     private GameObject selectedEntity;
     private TimeSpan totalTimeElapsed = TimeSpan.Zero;
@@ -42,7 +43,6 @@ public class SimulationController : MonoBehaviour
             Destroy(gameObject);
         }
     }
-
 
     // Update is called once per frame
     public void Update()
@@ -174,7 +174,6 @@ public class SimulationController : MonoBehaviour
 
     private IEnumerator LaunchSimulationJobs()
     {
-        int lastEntitiesCount = 0;
         while (simulationState == SimulationState.Running) 
         { 
             RemoveDeadEntities();
@@ -182,29 +181,22 @@ public class SimulationController : MonoBehaviour
             timeElapsedInCurrentSession = DateTime.Now - startTime;
             TimeSpan timeToDisplay = totalTimeElapsed + timeElapsedInCurrentSession;
             UiController.Instance.UpdateSimulationInformationPanel(timeToDisplay, simulationSpeed, entities.Count, foodItems.Count);
-            
-            if (entities.Count != lastEntitiesCount) 
-            {
-                UiController.Instance.UpdateEntitiesWatchlistPanel(entities);
-                lastEntitiesCount = entities.Count;
                 
-                // Check if all entities are dead
-                if (entities.Count == 0)
-                {
-                    Debug.Log("All entities are dead. Stopping simulation.");
-                    StopSimulation();
-                    UiController.Instance.OnSimulationEnded();
-                    yield break;
-                }
+            // Check if all entities are dead
+            if (entities.Count == 0)
+            {
+                Debug.Log("All entities are dead. Stopping simulation.");
+                StopSimulation();
+                UiController.Instance.OnSimulationEnded();
+                yield break;
             }
-
+        
             yield return new WaitForSeconds(simulationStepInterval);
         }
     }
 
     private void SpawnEntities()
     {
-        Debug.Log("Spawning entities");
         // Load the prefab from Resources
         GameObject entityPrefab = Resources.Load<GameObject>("EntityPrefab");
 
@@ -222,7 +214,6 @@ public class SimulationController : MonoBehaviour
                 rnd.Next(-worldSize / 2, worldSize / 2)
             );
             
-
             // Instantiate the entity and position it
             GameObject entity = Instantiate(entityPrefab, randomPosition, Quaternion.identity);
             entity.name = "Entity_" + i;
@@ -237,6 +228,7 @@ public class SimulationController : MonoBehaviour
                 Debug.LogError("Entity prefab was not initiated!");
             }
         }
+        Debug.Log("Spawned " + entities.Count + " entities.");
     }
 
     private void SpawnFood() {
@@ -275,33 +267,32 @@ public class SimulationController : MonoBehaviour
 
     private void RemoveDeadEntities()
     {
+        List<GameObject> entitiesToRemove = new();
         // Remove dead entities from the list
-        entities.RemoveAll(entity => 
-        {
+        foreach (GameObject entity in entities) {
             if (entity == null) 
             {
-                Debug.Log("Entity died because entity was null: " + entity.name);
-                return true;
+                Debug.Log("Entity died because entity was null");
+                entitiesToRemove.Add(entity);
             }   
             EntityController entityController = entity.GetComponent<EntityController>();
             if (entityController == null)
             {
-                entityController.OnDeath();
-                Destroy(entity);
                 Debug.Log("Entity died because controller was null: " + entity.name);
-                return true;
+                entitiesToRemove.Add(entity);
             }   
+
             if (entityController.healthMeter <= 0f) 
             {
-                entityController.OnDeath();
-                // Remove the Entity from the simulation
-                Destroy(entity);
-                Debug.Log("Entity died" + entity.name);
-                return true;
-            } else 
-            {
-                return false;
-            }
+                Debug.Log("Entity died because health reached 0 : " + entity.name);
+                entitiesToRemove.Add(entity);
+            } 
+        }
+        entitiesToRemove.ForEach(entity => {
+            EntityController entityController = entity.GetComponent<EntityController>();
+            entities.Remove(entity);
+            entityController.OnDeath();
+            Destroy(entity);
         });
     }
 

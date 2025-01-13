@@ -6,6 +6,9 @@ using System;
 using UnityEngine.XR;
 using System.Collections.Generic;
 using UnityEngine.EventSystems;
+using Unity.VisualScripting;
+using System.Collections.ObjectModel;
+using System.Collections.Specialized;
 
 public class UiController : MonoBehaviour
 {
@@ -21,8 +24,8 @@ public class UiController : MonoBehaviour
     private bool isEwpPanelOpen = false;
     private bool isGipPanelOpen = false;
     private Coroutine entityStatsPanelCoroutine;
-    //private Coroutine updateEntityListCoroutine;
-    //private Coroutine updateGeneListCoroutine;
+    Transform entityListScrollView;
+    GameObject entityListItemPrefab;
 
     void Awake()
     {
@@ -43,6 +46,10 @@ public class UiController : MonoBehaviour
         playPauseButtonIcon.sprite = playIcon;
         entityStatsPanel = GameObject.Find("ESP");
         entityStatsPanel.SetActive(false);
+
+        entityListScrollView = GameObject.Find("EWP_EntityListScrollView/Viewport/Content").transform;
+        entityListItemPrefab = Resources.Load<GameObject>("ListItemPrefab");
+        SimulationController.Instance.entities.CollectionChanged += (sender, e) => UpdateEntitiesList(e);
     }
 
     public void OnResumePauseButtonClicked()
@@ -80,6 +87,7 @@ public class UiController : MonoBehaviour
         GameObject ewpContainer = GameObject.Find("EWP_container");
         ToggleSidebarPanel(ewpContainer, isEwpPanelOpen);
         isEwpPanelOpen = !isEwpPanelOpen;
+        InitiateEntitiesList(SimulationController.Instance.entities);
     }
 
     public void OnGeneticInformationPanelClicked()
@@ -124,39 +132,63 @@ public class UiController : MonoBehaviour
         }
     }
 
-    public void UpdateEntitiesWatchlistPanel(List<GameObject> entities) 
+    private void InitiateEntitiesList(ObservableCollection<GameObject> entities) 
     {
-        Transform entityListScrollView = GameObject.Find("EWP_EntityListScrollView/Viewport/Content").transform;
-        GameObject entityListItemPrefab = Resources.Load<GameObject>("ListItemPrefab");
-        
-        // Clear existing list items
-        foreach (Transform child in entityListScrollView)
-        {
-            Destroy(child.gameObject);
-        }
         Debug.Log("UpdateEntitiesWatchlistPanel called. Number of entities: " + entities.Count);
         
         // Populate the list with new items
         foreach (GameObject entity in entities)
         {
-            GameObject listItem = Instantiate(entityListItemPrefab, entityListScrollView);
-            listItem.transform.Find("ListItem_Text").GetComponent<TextMeshProUGUI>().text = entity.gameObject.name;
-
-            // Set up the EventTrigger for click events
-            EventTrigger trigger = listItem.GetComponent<EventTrigger>();
-            if (trigger == null)
-            {
-                trigger = listItem.AddComponent<EventTrigger>();
-            }
-            EventTrigger.Entry entry = new();
-            entry.eventID = EventTriggerType.PointerClick;
-            entry.callback.AddListener((eventData) => { 
-                entity.GetComponent<EntityController>().SelectEntity();    
-                Debug.Log("Entity clicked on list " + entity.name);
-            });
-            trigger.triggers.Add(entry);
-            Debug.Log("Trigger added to " + entity.name);
+            AddEntityToEntityList(entity);
         }
+    }
+
+    private void UpdateEntitiesList(NotifyCollectionChangedEventArgs e) 
+    {
+        if (e.NewItems != null)
+        {
+            foreach (GameObject entity in e.NewItems)
+            {
+                AddEntityToEntityList(entity);
+            }
+        }
+        
+        if (e.OldItems != null)
+        {
+            foreach (GameObject entity in e.OldItems)
+            {
+                // Remove the entity from the list
+                foreach (Transform child in entityListScrollView)
+                {
+                    if (child.name == entity.name)
+                    {
+                        Destroy(child.gameObject);
+                    }
+                }
+            }
+        }
+    }
+
+    private void AddEntityToEntityList(GameObject entity)
+    {
+        GameObject listItem = Instantiate(entityListItemPrefab, entityListScrollView);
+        listItem.name = entity.gameObject.name;
+        Transform button = listItem.transform.Find("ListItem_Button");
+        button.Find("ListItem_Text").GetComponent<TextMeshProUGUI>().text = entity.gameObject.name;
+        AddEventTriggerListener(button, entity);
+    }
+
+    private void AddEventTriggerListener(Transform button, GameObject entity)
+    {
+        Button listItemButton = button.GetComponent<Button>();
+        listItemButton.onClick.AddListener(() => OnListItemClicked(entity));
+    }
+
+    public void OnListItemClicked(GameObject entity)
+    {
+        // Handle the click event
+        Debug.Log("Clicked on entity: " + entity.gameObject.name);
+        entity.GetComponent<EntityController>().SelectEntity();
     }
 
     private void HandleSimulationStop()
