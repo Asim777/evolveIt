@@ -13,9 +13,9 @@ public class CameraController : MonoBehaviour
     public float maxZoom = 20f;      // Maximum zoom level
 
     // Private variables 
-    private Camera mainCamera;
-    private Vector3 dragOrigin; // Stores the position where dragging started
-    private Transform target; // The target object to follow
+    private Camera _mainCamera;
+    private Vector3 _dragOrigin; // Stores the position where dragging started
+    private Transform _target; // The target object to follow
 
     void Awake()
     {
@@ -31,14 +31,14 @@ public class CameraController : MonoBehaviour
 
     void Start()
     {
-        mainCamera = Camera.main;
+        _mainCamera = Camera.main;
     }
 
     void Update()
     {
-        if (target != null)
+        if (_target is not null)
         {
-            Vector3 targetPosition = target.position;
+            var targetPosition = _target.position;
             targetPosition.z = -10f; // Ensure the camera stays at the correct Z position
             transform.position = Vector3.Lerp(transform.position, targetPosition, followSpeed * Time.deltaTime);
             
@@ -52,23 +52,23 @@ public class CameraController : MonoBehaviour
 
     public void FocusOnTarget(GameObject target)
     {
-        this.target = target.transform;
+        this._target = target.transform;
         StartCoroutine(ZoomInOnTarget());
     }
 
     public void StopFollowing()
     {
-        target = null;
+        _target = null;
     }
 
     private void HandleCameraMovement() 
     {   
         // Camera movement (using arrow keys or WASD)
-        float moveX = Input.GetAxis("Horizontal") * moveSpeed * Time.deltaTime;
-        float moveY = Input.GetAxis("Vertical") * moveSpeed * Time.deltaTime;
-        Vector3 newPosition = transform.position + new Vector3(moveX, moveY, 0);
+        var moveX = Input.GetAxis("Horizontal") * moveSpeed * Time.deltaTime;
+        var moveY = Input.GetAxis("Vertical") * moveSpeed * Time.deltaTime;
+        var newPosition = transform.position + new Vector3(moveX, moveY, 0);
 
-        mainCamera.transform.position = newPosition;
+        _mainCamera.transform.position = newPosition;
     }
 
     private void HandleCameraZoom() 
@@ -80,9 +80,9 @@ public class CameraController : MonoBehaviour
         }
 
         // Camera zoom (using mouse scroll wheel)
-        float scroll = Input.GetAxis("Mouse ScrollWheel");
-        mainCamera.orthographicSize -= scroll * zoomSpeed;
-        mainCamera.orthographicSize = Mathf.Clamp(mainCamera.orthographicSize, minZoom, maxZoom);
+        var scroll = Input.GetAxis("Mouse ScrollWheel");
+        _mainCamera.orthographicSize -= scroll * zoomSpeed;
+        _mainCamera.orthographicSize = Mathf.Clamp(_mainCamera.orthographicSize, minZoom, maxZoom);
     }
 
     private void HandleCameraDrag() 
@@ -96,21 +96,21 @@ public class CameraController : MonoBehaviour
         // Start dragging with left or middle mouse button
         if (Input.GetMouseButtonDown(0) || Input.GetMouseButtonDown(2))
         {
-            dragOrigin = mainCamera.ScreenToWorldPoint(Input.mousePosition);
-            Texture2D dragCursor = Resources.Load<Texture2D>("ic_drag");
+            _dragOrigin = _mainCamera.ScreenToWorldPoint(Input.mousePosition);
+            var dragCursor = Resources.Load<Texture2D>("ic_drag");
             Cursor.SetCursor(dragCursor, Vector2.zero, CursorMode.ForceSoftware); // Change cursor to hand
         }
 
         // // Continue dragging
         if (Input.GetMouseButton(0) || Input.GetMouseButton(2))
         {
-            Vector3 currentMousePosition = mainCamera.ScreenToWorldPoint(Input.mousePosition);
-            Vector3 difference = dragOrigin - currentMousePosition;
+            var currentMousePosition = _mainCamera.ScreenToWorldPoint(Input.mousePosition);
+            var difference = _dragOrigin - currentMousePosition;
 
             // Move the camera opposite to the drag direction
-            Vector3 newPosition = transform.position + difference;
+            var newPosition = transform.position + difference;
 
-            mainCamera.transform.position = newPosition;
+            _mainCamera.transform.position = newPosition;
         }
 
         // Stop dragging when the button is released
@@ -122,11 +122,13 @@ public class CameraController : MonoBehaviour
 
     private IEnumerator ZoomInOnTarget()
     {
-        Camera mainCamera = Camera.main;
-        while (mainCamera.orthographicSize > 8f)
-        {
-            mainCamera.orthographicSize -= zoomSpeed * Time.deltaTime;
-            yield return null;
+        if (_mainCamera is not null) 
+        { 
+            while (_mainCamera.orthographicSize > 8f)
+            {
+                _mainCamera.orthographicSize -= zoomSpeed * Time.deltaTime;
+                yield return null;
+            }
         }
     }
 }  

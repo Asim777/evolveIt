@@ -2,17 +2,17 @@ using System;
 using System.Collections;
 using System.Collections.Generic;
 using System.Collections.ObjectModel;
-using NUnit.Framework;
-using TMPro;
-using Unity.VisualScripting;
 using UnityEngine;
 using Random = System.Random;
 
 public class SimulationController : MonoBehaviour
 {
     // Public variables
-    public static SimulationController Instance  { get; private set; } // Singleton instance for easy access
-    internal static readonly float simulationStepInterval = 0.5f; // Interval in seconds to evaluate the entities and update the simulation state
+    public static SimulationController Instance { get; private set; } // Singleton instance for easy access
+
+    internal const float
+        SimulationStepInterval = 0.5f; // Interval in seconds to evaluate the entities and update the simulation state
+
     public SimulationState simulationState = SimulationState.Stopped; // State of the simulation
     public SimualtionSpeed simulationSpeed = SimualtionSpeed.Normal; // Speed of the simulation
 
@@ -22,18 +22,19 @@ public class SimulationController : MonoBehaviour
     public int worldSize; // World is square shaped
 
     // Private variables
-    private static readonly System.Random rnd = new();
-    public ObservableCollection<GameObject> entities = new();
-    private readonly List<GameObject> foodItems = new();
-    private GameObject selectedEntity;
-    private TimeSpan totalTimeElapsed = TimeSpan.Zero;
-    private TimeSpan timeElapsedInCurrentSession = TimeSpan.Zero;
-    private DateTime startTime; // Time when the simulation started
-    private Coroutine simulationJobsCoroutine;
+    private static readonly Random Rnd = new();
+    public readonly ObservableCollection<GameObject> Entities = new();
+    public readonly ObservableCollection<GameObject> Watchlist = new();
+    private readonly List<GameObject> _foodItems = new();
+    private GameObject _selectedEntity;
+    private TimeSpan _totalTimeElapsed = TimeSpan.Zero;
+    private TimeSpan _timeElapsedInCurrentSession = TimeSpan.Zero;
+    private DateTime _startTime; // Time when the simulation started
+    private Coroutine _simulationJobsCoroutine;
 
     public void Awake()
     {
-         // Ensure that there is only one SimulationController instance
+        // Ensure that there is only one SimulationController instance
         if (Instance == null)
         {
             Instance = this;
@@ -51,10 +52,13 @@ public class SimulationController : MonoBehaviour
         {
             // Place your code to update the simulation each frame here
             // Loop through each Entity and call their Move() method
-            foreach (var entity in entities)
+            foreach (var entity in Entities)
             {
-                if (entity != null) {
-                    entity.GetComponent<EntityController>().OnSimulationUpdate();
+                if (!entity) continue;
+
+                if (entity.TryGetComponent(out EntityController entityController))
+                {
+                    entityController.OnSimulationUpdate();
                 }
             }
         }
@@ -66,65 +70,59 @@ public class SimulationController : MonoBehaviour
         }
     }
 
-    public void RemoveFood(GameObject food) {
-        foodItems.Remove(food);
+    public void RemoveFood(GameObject food)
+    {
+        _foodItems.Remove(food);
         Destroy(food);
     }
 
-    public void StartSimulation() 
+    public void StartSimulation()
     {
-        if (simulationState == SimulationState.Stopped) {
-            startTime = DateTime.Now;
-            
-            StartCoroutine(InitializeSimulation());
+        if (simulationState != SimulationState.Stopped) return;
 
-            simulationState = SimulationState.Running;
-
-            if (simulationJobsCoroutine == null)
-            {
-                simulationJobsCoroutine = StartCoroutine(LaunchSimulationJobs());
-            }
-
-            Debug.Log("Simulation Started.");
-        }
+        _startTime = DateTime.Now;
+        StartCoroutine(InitializeSimulation());
+        simulationState = SimulationState.Running;
+        _simulationJobsCoroutine ??= StartCoroutine(LaunchSimulationJobs());
+        Debug.Log("Simulation Started.");
     }
 
     public void ResumeSimulation()
     {
         Debug.Log("Simulation Resumed.");
 
-        startTime = DateTime.Now;
+        _startTime = DateTime.Now;
         simulationState = SimulationState.Running;
         StartCoroutine(LaunchSimulationJobs());
 
-        foreach (var entity in entities) 
+        foreach (var entity in Entities)
         {
-            if (entity != null) 
+            if (entity)
             {
                 entity.GetComponent<EntityController>().Resume();
             }
         }
-    }   
+    }
 
     public void PauseSimulation()
     {
         simulationState = SimulationState.Paused;
 
-        foreach (var entity in entities)
+        foreach (var entity in Entities)
         {
-            if (entity != null) 
+            if (entity)
             {
                 entity.GetComponent<EntityController>().Pause();
             }
         }
 
-        totalTimeElapsed += timeElapsedInCurrentSession;
-        timeElapsedInCurrentSession = TimeSpan.Zero;
+        _totalTimeElapsed += _timeElapsedInCurrentSession;
+        _timeElapsedInCurrentSession = TimeSpan.Zero;
 
         Debug.Log("Simulation Paused.");
     }
 
-    
+
     public void StopSimulation()
     {
         simulationState = SimulationState.Stopped;
@@ -132,35 +130,45 @@ public class SimulationController : MonoBehaviour
         DeselectSelectedEntity();
 
         // Destroy all entities GameObjects
-        foreach (GameObject entity in entities)
+        foreach (var entity in Entities)
         {
-          Destroy(entity);
+            Destroy(entity);
         }
 
         // Destroy all food GameObjects
-        foreach (GameObject food in foodItems)
+        foreach (var food in _foodItems)
         {
-          Destroy(food);
+            Destroy(food);
         }
 
         // Clear the list 
-        entities.Clear();
-        foodItems.Clear();
+        Entities.Clear();
+        Watchlist.Clear();
+        _foodItems.Clear();
 
         // Reset the time elapsed
-        timeElapsedInCurrentSession = TimeSpan.Zero;
-        totalTimeElapsed = TimeSpan.Zero;
+        _timeElapsedInCurrentSession = TimeSpan.Zero;
+        _totalTimeElapsed = TimeSpan.Zero;
 
         // Stop the simulation jobs coroutine
-        StopCoroutine(simulationJobsCoroutine);
-        simulationJobsCoroutine = null;
+        if (_simulationJobsCoroutine is not null)
+        {
+            StopCoroutine(_simulationJobsCoroutine);
+        }
+
+        _simulationJobsCoroutine = null;
         Debug.Log("Simulation Stopped.");
     }
 
     public void RegisterSelectedEntity(GameObject entity)
     {
         DeselectSelectedEntity();
-        selectedEntity = entity;    
+        _selectedEntity = entity;
+    }
+
+    public GameObject GetSelectedEntity()
+    {
+        return _selectedEntity;
     }
 
     private IEnumerator InitializeSimulation()
@@ -174,89 +182,92 @@ public class SimulationController : MonoBehaviour
 
     private IEnumerator LaunchSimulationJobs()
     {
-        while (simulationState == SimulationState.Running) 
-        { 
+        while (simulationState == SimulationState.Running)
+        {
             RemoveDeadEntities();
 
-            timeElapsedInCurrentSession = DateTime.Now - startTime;
-            TimeSpan timeToDisplay = totalTimeElapsed + timeElapsedInCurrentSession;
-            UiController.Instance.UpdateSimulationInformationPanel(timeToDisplay, simulationSpeed, entities.Count, foodItems.Count);
-                
+            _timeElapsedInCurrentSession = DateTime.Now - _startTime;
+            var timeToDisplay = _totalTimeElapsed + _timeElapsedInCurrentSession;
+            UiController.Instance.UpdateSimulationInformationPanel(timeToDisplay, simulationSpeed, Entities.Count,
+                _foodItems.Count);
+
             // Check if all entities are dead
-            if (entities.Count == 0)
+            if (Entities.Count == 0)
             {
                 Debug.Log("All entities are dead. Stopping simulation.");
                 StopSimulation();
                 UiController.Instance.OnSimulationEnded();
                 yield break;
             }
-        
-            yield return new WaitForSeconds(simulationStepInterval);
+
+            yield return new WaitForSeconds(SimulationStepInterval);
         }
     }
 
     private void SpawnEntities()
     {
         // Load the prefab from Resources
-        GameObject entityPrefab = Resources.Load<GameObject>("EntityPrefab");
+        var entityPrefab = Resources.Load<GameObject>("EntityPrefab");
 
-        if (entityPrefab == null)
-         {
+        if (!entityPrefab)
+        {
             Debug.LogError("Entity prefab is not loaded!");
             return;
         }
 
-        for (int i = 0; i < numberOfEntities; i++)
+        for (var i = 0; i < numberOfEntities; i++)
         {
             // Generate a random position within the world boundaries
-            Vector2 randomPosition = new Vector2(
-                rnd.Next(-worldSize / 2, worldSize / 2),
-                rnd.Next(-worldSize / 2, worldSize / 2)
+            var randomPosition = new Vector2(
+                Rnd.Next(-worldSize / 2, worldSize / 2),
+                Rnd.Next(-worldSize / 2, worldSize / 2)
             );
-            
+
             // Instantiate the entity and position it
-            GameObject entity = Instantiate(entityPrefab, randomPosition, Quaternion.identity);
+            var entity = Instantiate(entityPrefab, randomPosition, Quaternion.identity);
             entity.name = "Entity_" + i;
 
             // If Entity GameObject is not null, register it
-            if (entity != null)
+            if (entity)
             {
-                entities.Add(entity);
+                Entities.Add(entity);
             }
             else
             {
                 Debug.LogError("Entity prefab was not initiated!");
             }
         }
-        Debug.Log("Spawned " + entities.Count + " entities.");
+
+        Debug.Log("Spawned " + Entities.Count + " entities.");
     }
 
-    private void SpawnFood() {
+    private void SpawnFood()
+    {
         Debug.Log("Spawning food");
         // Load the prefab from Resources
-        GameObject foodPrefab = Resources.Load<GameObject>("FoodPrefab");
+        var foodPrefab = Resources.Load<GameObject>("FoodPrefab");
 
-        if (foodPrefab == null)
+        if (!foodPrefab)
         {
             Debug.LogError("Food prefab is not loaded!");
             return;
         }
-            
-        for (int i = 0; i < numberOfFood; i++)
+
+        for (var i = 0; i < numberOfFood; i++)
         {
             // Generate a random position within the world boundaries
-            Vector2 randomPosition = new Vector2(
-                rnd.Next(-worldSize / 2, worldSize / 2),
-                rnd.Next(-worldSize / 2, worldSize / 2)
+            var randomPosition = new Vector2(
+                Rnd.Next(-worldSize / 2, worldSize / 2),
+                Rnd.Next(-worldSize / 2, worldSize / 2)
             );
 
             // Instantiate the food and position it
-            GameObject food = Instantiate(foodPrefab, randomPosition, Quaternion.identity);
+            var food = Instantiate(foodPrefab, randomPosition, Quaternion.identity);
 
             // If Entity GameObject is not null, register it
-            if (food != null)
+            if (food)
             {
-                foodItems.Add(food);
+                _foodItems.Add(food);
             }
             else
             {
@@ -269,44 +280,48 @@ public class SimulationController : MonoBehaviour
     {
         List<GameObject> entitiesToRemove = new();
         // Remove dead entities from the list
-        foreach (GameObject entity in entities) {
-            if (entity == null) 
+        foreach (var entity in Entities)
+        {
+            if (entity is not null)
             {
-                Debug.Log("Entity died because entity was null");
-                entitiesToRemove.Add(entity);
-            }   
-            EntityController entityController = entity.GetComponent<EntityController>();
-            if (entityController == null)
-            {
-                Debug.Log("Entity died because controller was null: " + entity.name);
-                entitiesToRemove.Add(entity);
-            }   
+                if (!entity.TryGetComponent<EntityController>(out var entityController))
+                {
+                    Debug.Log("Entity died because controller was null: " + entity.name);
+                    entitiesToRemove.Add(entity);
+                }
 
-            if (entityController.healthMeter <= 0f) 
-            {
-                Debug.Log("Entity died because health reached 0 : " + entity.name);
-                entitiesToRemove.Add(entity);
-            } 
+                if (entityController.healthMeter <= 0f)
+                {
+                    Debug.Log("Entity died because health reached 0 : " + entity.name);
+                    entitiesToRemove.Add(entity);
+                }
+            }
         }
-        entitiesToRemove.ForEach(entity => {
-            EntityController entityController = entity.GetComponent<EntityController>();
-            entities.Remove(entity);
+
+        entitiesToRemove.ForEach(entity =>
+        {
+            entity.TryGetComponent<EntityController>(out var entityController);
+
+            Entities.Remove(entity);
+            Watchlist.Remove(entity);
             entityController.OnDeath();
             Destroy(entity);
         });
+        Debug.Log("Removed " + entitiesToRemove.Count + " entities.");
     }
 
     private void DeselectSelectedEntity()
     {
-        if (selectedEntity != null)
-        {
-            selectedEntity.GetComponent<EntityController>().DeselectEntity();
-            selectedEntity = null;
-        }
+        if (!_selectedEntity) return;
+
+        _selectedEntity.TryGetComponent<EntityController>(out var entityController);
+        entityController.DeselectEntity();
+        _selectedEntity = null;
     }
 }
 
-public enum SimualtionSpeed {
+public enum SimualtionSpeed
+{
     Normal,
     Double,
     Quadruple,
@@ -314,7 +329,8 @@ public enum SimualtionSpeed {
     x16
 }
 
-public enum SimulationState {
+public enum SimulationState
+{
     Running,
     Paused,
     Stopped

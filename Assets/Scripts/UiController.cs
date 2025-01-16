@@ -1,14 +1,10 @@
-using UnityEngine;
-using UnityEngine.UI;
-using TMPro;
-using System.Collections;
 using System;
-using UnityEngine.XR;
-using System.Collections.Generic;
-using UnityEngine.EventSystems;
-using Unity.VisualScripting;
+using System.Collections;
 using System.Collections.ObjectModel;
 using System.Collections.Specialized;
+using TMPro;
+using UnityEngine;
+using UnityEngine.UI;
 
 public class UiController : MonoBehaviour
 {
@@ -18,14 +14,15 @@ public class UiController : MonoBehaviour
     public Button playPauseButton; // Assign the Button in the Inspector
 
     //private Image playPauseButtonBackground;
-    private Image playPauseButtonIcon;
+    private Image _playPauseButtonIcon;
     public GameObject entityStatsPanel; 
 
-    private bool isEwpPanelOpen = false;
-    private bool isGipPanelOpen = false;
-    private Coroutine entityStatsPanelCoroutine;
-    Transform entityListScrollView;
-    GameObject entityListItemPrefab;
+    private bool _isEwpPanelOpen;
+    private bool _isGipPanelOpen;
+    private Coroutine _entityStatsPanelCoroutine;
+    private Transform _entityListScrollView;
+    private Transform _watchlistScrollView;
+    private GameObject _entityListItemPrefab;
 
     void Awake()
     {
@@ -42,14 +39,17 @@ public class UiController : MonoBehaviour
     void Start()
     {
         // playPauseButtonBackground = playPauseButton.GetComponent<Image>();
-        playPauseButtonIcon = playPauseButton.transform.GetChild(0).GetComponent<Image>();
-        playPauseButtonIcon.sprite = playIcon;
+        _playPauseButtonIcon = playPauseButton.transform.GetChild(0).GetComponent<Image>();
+        _playPauseButtonIcon.sprite = playIcon;
         entityStatsPanel = GameObject.Find("ESP");
         entityStatsPanel.SetActive(false);
 
-        entityListScrollView = GameObject.Find("EWP_EntityListScrollView/Viewport/Content").transform;
-        entityListItemPrefab = Resources.Load<GameObject>("ListItemPrefab");
-        SimulationController.Instance.entities.CollectionChanged += (sender, e) => UpdateEntitiesList(e);
+        _entityListScrollView = GameObject.Find("EWP_EntityListScrollView/Viewport/Content").transform;
+        _watchlistScrollView = GameObject.Find("EWP_WatchlistScrollView/Viewport/Content").transform;
+
+        _entityListItemPrefab = Resources.Load<GameObject>("ListItemPrefab");
+        SimulationController.Instance.Entities.CollectionChanged += (_, e) => UpdateEntitiesList(e);
+        SimulationController.Instance.Watchlist.CollectionChanged += (_, e) => UpdateWatchlist(e);
     }
 
     public void OnResumePauseButtonClicked()
@@ -58,15 +58,15 @@ public class UiController : MonoBehaviour
         {
             case SimulationState.Running:
                 SimulationController.Instance.PauseSimulation();
-                playPauseButtonIcon.sprite = playIcon;
+                _playPauseButtonIcon.sprite = playIcon;
                 break;
             case SimulationState.Paused:
                 SimulationController.Instance.ResumeSimulation();
-                playPauseButtonIcon.sprite = pauseIcon;
+                _playPauseButtonIcon.sprite = pauseIcon;
                 break;
             case SimulationState.Stopped:
                 SimulationController.Instance.StartSimulation();
-                playPauseButtonIcon.sprite = pauseIcon;
+                _playPauseButtonIcon.sprite = pauseIcon;
                 break;
         }
     }
@@ -74,6 +74,11 @@ public class UiController : MonoBehaviour
     public void OnStopButtonClicked() {
         SimulationController.Instance.StopSimulation();
         HandleSimulationStop();
+    }
+
+    public void OnAddToWatchlistButtonClicked()
+    {
+        SimulationController.Instance.Watchlist.Add(SimulationController.Instance.GetSelectedEntity());
     }
 
     // Called when the simulation ends naturally 
@@ -85,16 +90,16 @@ public class UiController : MonoBehaviour
     public void OnEntitiesWatchlistPanelClicked()
     {
         GameObject ewpContainer = GameObject.Find("EWP_container");
-        ToggleSidebarPanel(ewpContainer, isEwpPanelOpen);
-        isEwpPanelOpen = !isEwpPanelOpen;
-        InitiateEntitiesList(SimulationController.Instance.entities);
+        ToggleSidebarPanel(ewpContainer, _isEwpPanelOpen);
+        _isEwpPanelOpen = !_isEwpPanelOpen;
+        InitiateEntitiesList(SimulationController.Instance.Entities);
     }
 
     public void OnGeneticInformationPanelClicked()
     {
         GameObject gipContainer = GameObject.Find("GIP_container");
-        ToggleSidebarPanel(gipContainer, isGipPanelOpen);
-        isGipPanelOpen = !isGipPanelOpen;
+        ToggleSidebarPanel(gipContainer, _isGipPanelOpen);
+        _isGipPanelOpen = !_isGipPanelOpen;
     }
 
     public void UpdateSimulationInformationPanel(TimeSpan timeElapsed, SimualtionSpeed simulationSpeed, int entitiesCount, int foodCount)
@@ -111,24 +116,24 @@ public class UiController : MonoBehaviour
         entityStatsPanel.SetActive(true);
 
         // Stop the previous coroutine if it is running to avoid updating the wrong entity stats
-        if (entityStatsPanelCoroutine != null)
+        if (_entityStatsPanelCoroutine != null)
         {
-            StopCoroutine(entityStatsPanelCoroutine);
-            entityStatsPanelCoroutine = null;
+            StopCoroutine(_entityStatsPanelCoroutine);
+            _entityStatsPanelCoroutine = null;
         }
 
         // Start the coroutine to update the entity stats panel
-        entityStatsPanelCoroutine = StartCoroutine(UpdateEntityStatsPanel(entity));
+        _entityStatsPanelCoroutine = StartCoroutine(UpdateEntityStatsPanel(entity));
     }
 
     public void HideEntityStatsPanel()
     {
         entityStatsPanel.SetActive(false);
 
-        if (entityStatsPanelCoroutine != null)
+        if (_entityStatsPanelCoroutine != null)
         {
-            StopCoroutine(entityStatsPanelCoroutine);
-            entityStatsPanelCoroutine = null;
+            StopCoroutine(_entityStatsPanelCoroutine);
+            _entityStatsPanelCoroutine = null;
         }
     }
 
@@ -157,31 +162,64 @@ public class UiController : MonoBehaviour
         {
             foreach (GameObject entity in e.OldItems)
             {
-                // Remove the entity from the list
-                foreach (Transform child in entityListScrollView)
-                {
-                    if (child.name == entity.name)
-                    {
-                        Destroy(child.gameObject);
-                    }
-                }
+                // Remove the entity from the entities list
+                RemoveListItem(entity, _entityListScrollView);
+            }
+        }
+    }
+
+    private void UpdateWatchlist(NotifyCollectionChangedEventArgs e)
+    {
+        if (e.NewItems != null)
+        {
+            foreach (GameObject entity in e.NewItems)
+            {
+                AddEntityToWatchlist(entity);
+            }
+        }
+        
+        if (e.OldItems != null)
+        {
+            foreach (GameObject entity in e.OldItems)
+            {
+                // Remove the entity from the watchlist
+                RemoveListItem(entity, _watchlistScrollView);
             }
         }
     }
 
     private void AddEntityToEntityList(GameObject entity)
     {
-        GameObject listItem = Instantiate(entityListItemPrefab, entityListScrollView);
+        GameObject listItem = Instantiate(_entityListItemPrefab, _entityListScrollView);
         listItem.name = entity.gameObject.name;
         Transform button = listItem.transform.Find("ListItem_Button");
         button.Find("ListItem_Text").GetComponent<TextMeshProUGUI>().text = entity.gameObject.name;
-        AddEventTriggerListener(button, entity);
+        AddListItemClickListener(button, entity);
     }
 
-    private void AddEventTriggerListener(Transform button, GameObject entity)
+    private void AddEntityToWatchlist(GameObject entity)
+    {
+        GameObject listItem = Instantiate(_entityListItemPrefab, _watchlistScrollView);
+        listItem.name = entity.gameObject.name;
+        Transform button = listItem.transform.Find("ListItem_Button");
+        button.Find("ListItem_Text").GetComponent<TextMeshProUGUI>().text = entity.gameObject.name;
+    }
+
+    private void AddListItemClickListener(Transform button, GameObject entity)
     {
         Button listItemButton = button.GetComponent<Button>();
         listItemButton.onClick.AddListener(() => OnListItemClicked(entity));
+    }
+
+    private void RemoveListItem(GameObject entity, Transform scrollView)
+    {
+        foreach (Transform child in scrollView)
+        {
+            if (child.name == entity.name)
+            {
+                Destroy(child.gameObject);
+            }
+        }
     }
 
     public void OnListItemClicked(GameObject entity)
@@ -193,10 +231,10 @@ public class UiController : MonoBehaviour
 
     private void HandleSimulationStop()
     {
-        playPauseButtonIcon.sprite = playIcon;
+        _playPauseButtonIcon.sprite = playIcon;
 
         StopAllCoroutines();
-        entityStatsPanelCoroutine = null;
+        _entityStatsPanelCoroutine = null;
     }
 
     private void ToggleSidebarPanel(GameObject panelContainer, bool isPanelOpen)
@@ -212,10 +250,10 @@ public class UiController : MonoBehaviour
         }
     }
 
-    private IEnumerator SlidePanel(RectTransform panel, Vector2 start, Vector2 end)
+    private static IEnumerator SlidePanel(RectTransform panel, Vector2 start, Vector2 end)
     {
         float elapsedTime = 0;
-        float duration = 0.1f;
+        const float duration = 0.1f;
 
         while (elapsedTime < duration)
         {
@@ -229,14 +267,14 @@ public class UiController : MonoBehaviour
 
     private IEnumerator UpdateEntityStatsPanel(EntityController entity)
     {
-        while(true)  
+        while(entity is not null && SimulationController.Instance.simulationState == SimulationState.Running)  
         {
             GameObject.Find("ESP_Name").GetComponent<TextMeshProUGUI>().text = entity.gameObject.name;
             GameObject.Find("ESP_Health").GetComponent<TextMeshProUGUI>().text = "Health: " + Math.Round(entity.healthMeter, 2);
             GameObject.Find("ESP_Hunger").GetComponent<TextMeshProUGUI>().text = "Hunger: " + Math.Round(entity.hungerMeter, 2);
             GameObject.Find("ESP_Reproduction").GetComponent<TextMeshProUGUI>().text = "Reproduction: " + Math.Round(entity.reproductionMeter, 2);
 
-            yield return new WaitForSeconds(SimulationController.simulationStepInterval);
+            yield return new WaitForSeconds(SimulationController.SimulationStepInterval);
         }
     }
 }

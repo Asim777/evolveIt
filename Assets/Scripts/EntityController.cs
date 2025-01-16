@@ -1,9 +1,7 @@
 using UnityEngine;
 using System.Collections;
 using Random = System.Random;
-using UnityEditor.Experimental.GraphView;
 using System;
-using Unity.VisualScripting;
 using UnityEngine.EventSystems;
 
 public class EntityController : MonoBehaviour
@@ -12,73 +10,90 @@ public class EntityController : MonoBehaviour
     public float speed = 5f; // The speed at which the Entity moves
     public float entityIntervalCoefficient = 4f; // Coefficient to adjust the interval between direction changes
     public float healthMeter = 100f; // The health meter of the Entity. 0.0f means dead, 100.0f means healthy
-    public float hungerMeter = 0f; // The hunger meter of the Entity. 100.0f means starving, 0.0f means full
-    public float reproductionMeter = 0f; // The reproduction meter of the Entity. 100.0f means ready to reproduce, 0.0f means not ready
+    public float hungerMeter; // The hunger meter of the Entity. 100.0f means starving, 0.0f means full
+
+    public float
+        reproductionMeter; // The reproduction meter of the Entity. 100.0f means ready to reproduce, 0.0f means not ready
 
     // Private variables 
-    private static readonly System.Random rnd = new();
-    private Rigidbody2D rb; // Reference to the Rigidbody2D component attached to the Entity
-    private float currentDirection = 0; // The current direction the Entity is facing. 0 means right. 
-    private Coroutine updateDirectionCoroutine; // Reference to the coroutine that updates the movement direction of Entities
-    private Coroutine incrementHungerMeterCoroutine; // Reference to the coroutine that increments the hunger meter of Entities
-    private readonly float hungerImportance = 0.4f; // The importance of hunger for the health of the Entity. The smaller the value, the more important it is
-    private readonly float reproductionImportance = 15f; // The importance of reproduction for the health of the Entity. The smaller the value, the more important it is
-    private GameObject selectionOutline; 
-    void Start()
+    private static readonly Random Rnd = new();
+    private Rigidbody2D _rb; // Reference to the Rigidbody2D component attached to the Entity
+    private float _currentDirection; // The current direction the Entity is facing. 0 means right. 
+
+    private Coroutine
+        _updateDirectionCoroutine; // Reference to the coroutine that updates the movement direction of Entities
+
+    private Coroutine
+        _incrementHungerMeterCoroutine; // Reference to the coroutine that increments the hunger meter of Entities
+
+    private const float
+        HungerImportance =
+            0.4f; // The importance of hunger for the health of the Entity. The smaller the value, the more important it is
+
+    private const float
+        ReproductionImportance =
+            15f; // The importance of reproduction for the health of the Entity. The smaller the value, the more important it is
+
+    private GameObject _selectionOutline;
+
+    private void Start()
     {
-         // Prevent the Entity from rotating
-        rb = GetComponent<Rigidbody2D>();
-        rb.constraints = RigidbodyConstraints2D.FreezeRotation;
+        // Prevent the Entity from rotating
+        _rb = GetComponent<Rigidbody2D>();
+        _rb.constraints = RigidbodyConstraints2D.FreezeRotation;
 
         StartEntityCoroutines();
     }
 
-    public void OnSimulationUpdate() 
+    public void OnSimulationUpdate()
     {
-        Rigidbody2D rb = GetComponent<Rigidbody2D>();
-
-        if (rb != null) {
+        if (TryGetComponent<Rigidbody2D>(out var rb))
+        {
             // Allow Entities to move again
             rb.bodyType = RigidbodyType2D.Dynamic;
-            
+
             // Move the entity in the direction it is facing
             Vector2 facingDirection = new(
-                Mathf.Cos(transform.eulerAngles.z * Mathf.Deg2Rad), 
+                Mathf.Cos(transform.eulerAngles.z * Mathf.Deg2Rad),
                 Mathf.Sin(transform.eulerAngles.z * Mathf.Deg2Rad)
             );
             rb.linearVelocity = facingDirection * speed;
-        } else {
+        }
+        else
+        {
             Debug.LogError("Rigidbody2D component not found on Entity." + gameObject.name);
         }
     }
 
-    public void Resume() 
+    public void Resume()
     {
         StartEntityCoroutines();
     }
 
-    public void Pause() {
-        Rigidbody2D rb = GetComponent<Rigidbody2D>();
-
-        if (rb != null) {
+    public void Pause()
+    {
+        if (TryGetComponent<Rigidbody2D>(out var rb))
+        {
             // Stop Entities from moving
             rb.linearVelocity = Vector2.zero;
             rb.angularVelocity = 0f;
             rb.bodyType = RigidbodyType2D.Kinematic;
-        } else {
+        }
+        else
+        {
             Debug.LogError("Rigidbody2D component not found on Entity." + gameObject.name);
         }
-        
+
         StopEntityCoroutines();
     }
 
-    public void OnDeath() 
+    public void OnDeath()
     {
         DeselectEntity();
         StopEntityCoroutines();
     }
 
-    public void SelectEntity() 
+    public void SelectEntity()
     {
         // Focus on the Entity when it is clicked and show its stats and action buttons
         SimulationController.Instance.RegisterSelectedEntity(gameObject);
@@ -86,15 +101,15 @@ public class EntityController : MonoBehaviour
         UiController.Instance.ShowEntityStatsPanel(this);
 
         // Instantiate the outline and set it as a child of the entity
-        GameObject outlinePrefab = Resources.Load<GameObject>("EntitySelectionOutlinePrefab");
+        var outlinePrefab = Resources.Load<GameObject>("EntitySelectionOutlinePrefab");
 
-        if (outlinePrefab == null)
+        if (outlinePrefab is null)
         {
             Debug.LogError("Entity selection outline prefab is not loaded!");
             return;
         }
 
-        selectionOutline = Instantiate(outlinePrefab, transform);
+        _selectionOutline = Instantiate(outlinePrefab, transform);
     }
 
     public void DeselectEntity()
@@ -104,38 +119,38 @@ public class EntityController : MonoBehaviour
         UiController.Instance.HideEntityStatsPanel();
 
         // Destroy the outline
-        if (selectionOutline != null)
+        if (_selectionOutline is not null)
         {
-            Destroy(selectionOutline);
-            selectionOutline = null;
+            Destroy(_selectionOutline);
+            _selectionOutline = null;
         }
     }
 
     public void OnMouseDown()
     {
         //  Do not process click logic if the cursor is over a UI element
-        if (EventSystem.current.IsPointerOverGameObject())
-        {
-            return;
-        }
+        if (EventSystem.current.IsPointerOverGameObject()) return;
         SelectEntity();
     }
 
-    private void StartEntityCoroutines() 
+    private void StartEntityCoroutines()
     {
-        updateDirectionCoroutine ??= StartCoroutine(UpdateMovementDirection());
-        incrementHungerMeterCoroutine ??= StartCoroutine(UpdateInternalStates());
+        _updateDirectionCoroutine ??= StartCoroutine(UpdateMovementDirection());
+        _incrementHungerMeterCoroutine ??= StartCoroutine(UpdateInternalStates());
     }
 
     private void StopEntityCoroutines()
     {
-        if (updateDirectionCoroutine != null) {
-            StopCoroutine(updateDirectionCoroutine);
-            updateDirectionCoroutine = null;
+        if (_updateDirectionCoroutine is not null)
+        {
+            StopCoroutine(_updateDirectionCoroutine);
+            _updateDirectionCoroutine = null;
         }
-        if (incrementHungerMeterCoroutine != null) {
-            StopCoroutine(incrementHungerMeterCoroutine);
-            incrementHungerMeterCoroutine = null;
+
+        if (_incrementHungerMeterCoroutine is not null)
+        {
+            StopCoroutine(_incrementHungerMeterCoroutine);
+            _incrementHungerMeterCoroutine = null;
         }
     }
 
@@ -144,13 +159,13 @@ public class EntityController : MonoBehaviour
         while (SimulationController.Instance.simulationState == SimulationState.Running && healthMeter > 0f)
         {
             // Generate a random angle to turn
-            float randomAngle = rnd.Next(-90, 90);
-            currentDirection += randomAngle;
+            float randomAngle = Rnd.Next(-90, 90);
+            _currentDirection += randomAngle;
             // Apply the rotation to the Entity
-            transform.rotation = Quaternion.Euler(0, 0, currentDirection);
+            transform.rotation = Quaternion.Euler(0, 0, _currentDirection);
 
             // Wait for the next direction change interval
-            yield return new WaitForSeconds(SimulationController.simulationStepInterval/entityIntervalCoefficient);
+            yield return new WaitForSeconds(SimulationController.SimulationStepInterval / entityIntervalCoefficient);
         }
     }
 
@@ -161,28 +176,30 @@ public class EntityController : MonoBehaviour
             // Increase the Entity state meters and reproduction meter. Cap the meters at 100
             if (hungerMeter < 100) hungerMeter += 1f;
             if (reproductionMeter < 100) reproductionMeter += 1f;
-            
+
             // Update healthMeter depending on Entity states.
             // Health dependency on hunger and reproduction is a cubic function (y=ax^{3}+50), where a is the importance of the state for health
             // Hunger and reproduction only affect health if they are below 50 
             double healthChangeFromHunger = 0f;
             double healthChangeFromReproduction = 0f;
 
-            if (hungerMeter > 50) 
+            if (hungerMeter > 50)
             {
-                healthChangeFromHunger = Math.Cbrt((50 - hungerMeter) / hungerImportance);
+                healthChangeFromHunger = Math.Cbrt((50 - hungerMeter) / HungerImportance);
             }
-            if (reproductionMeter > 50) 
+
+            if (reproductionMeter > 50)
             {
-                healthChangeFromReproduction = Math.Cbrt((50 - reproductionMeter) / reproductionImportance);
+                healthChangeFromReproduction = Math.Cbrt((50 - reproductionMeter) / ReproductionImportance);
             }
-        
+
             // x = cubic root of (50 - y / a) 
             // healthMeter can't be  less than 0 and greater than 100
-            healthMeter = Mathf.Clamp((float)(healthMeter + healthChangeFromHunger + healthChangeFromReproduction), 0f, 100f);
+            healthMeter = Mathf.Clamp((float)(healthMeter + healthChangeFromHunger + healthChangeFromReproduction), 0f,
+                100f);
 
             // Wait 1 second for the next increment
-            yield return new WaitForSeconds(SimulationController.simulationStepInterval);
+            yield return new WaitForSeconds(SimulationController.SimulationStepInterval);
         }
     }
 
