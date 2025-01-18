@@ -50,8 +50,6 @@ public class SimulationController : MonoBehaviour
     {
         if (simulationState == SimulationState.Running)
         {
-            // Place your code to update the simulation each frame here
-            // Loop through each Entity and call their Move() method
             foreach (var entity in Entities)
             {
                 if (!entity) continue;
@@ -307,7 +305,6 @@ public class SimulationController : MonoBehaviour
             entityController.OnDeath();
             Destroy(entity);
         });
-        Debug.Log("Removed " + entitiesToRemove.Count + " entities.");
     }
 
     private void DeselectSelectedEntity()
@@ -326,7 +323,7 @@ public enum SimualtionSpeed
     Double,
     Quadruple,
     Octuple,
-    x16
+    X16
 }
 
 public enum SimulationState

@@ -93,12 +93,12 @@ public class EntityController : MonoBehaviour
         StopEntityCoroutines();
     }
 
-    public void SelectEntity()
+    public void SelectEntity(bool isSelectedFromUi)
     {
         // Focus on the Entity when it is clicked and show its stats and action buttons
         SimulationController.Instance.RegisterSelectedEntity(gameObject);
         CameraController.Instance.FocusOnTarget(gameObject);
-        UiController.Instance.ShowEntityStatsPanel(this);
+        UiController.Instance.OnEntitySelected(this, isSelectedFromUi);
 
         // Instantiate the outline and set it as a child of the entity
         var outlinePrefab = Resources.Load<GameObject>("EntitySelectionOutlinePrefab");
@@ -130,7 +130,7 @@ public class EntityController : MonoBehaviour
     {
         //  Do not process click logic if the cursor is over a UI element
         if (EventSystem.current.IsPointerOverGameObject()) return;
-        SelectEntity();
+        SelectEntity(false);
     }
 
     private void StartEntityCoroutines()
