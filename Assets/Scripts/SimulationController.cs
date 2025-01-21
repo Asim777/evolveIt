@@ -1,8 +1,9 @@
 using System;
 using System.Collections;
 using System.Collections.Generic;
-using System.Collections.ObjectModel;
+using UI_Panels;
 using UnityEngine;
+using Util;
 using Random = System.Random;
 
 public class SimulationController : MonoBehaviour
@@ -14,7 +15,7 @@ public class SimulationController : MonoBehaviour
         SimulationStepInterval = 0.5f; // Interval in seconds to evaluate the entities and update the simulation state
 
     public SimulationState simulationState = SimulationState.Stopped; // State of the simulation
-    public SimualtionSpeed simulationSpeed = SimualtionSpeed.Normal; // Speed of the simulation
+    public SimualationSpeed simulationSpeed = SimualationSpeed.Normal; // Speed of the simulation
 
     // World Settings
     public int numberOfEntities; // Number of entities to spawn initially
@@ -23,8 +24,8 @@ public class SimulationController : MonoBehaviour
 
     // Private variables
     private static readonly Random Rnd = new();
-    public readonly ObservableCollection<GameObject> Entities = new();
-    public readonly ObservableCollection<GameObject> Watchlist = new();
+    public readonly RangeObservableCollection<GameObject> Entities = new();
+    public readonly RangeObservableCollection<GameObject> Watchlist = new();
     private readonly List<GameObject> _foodItems = new();
     private GameObject _selectedEntity;
     private TimeSpan _totalTimeElapsed = TimeSpan.Zero;
@@ -125,8 +126,6 @@ public class SimulationController : MonoBehaviour
     {
         simulationState = SimulationState.Stopped;
 
-        DeselectSelectedEntity();
-
         // Destroy all entities GameObjects
         foreach (var entity in Entities)
         {
@@ -149,7 +148,7 @@ public class SimulationController : MonoBehaviour
         _totalTimeElapsed = TimeSpan.Zero;
 
         // Stop the simulation jobs coroutine
-        if (_simulationJobsCoroutine is not null)
+        if (_simulationJobsCoroutine != null)
         {
             StopCoroutine(_simulationJobsCoroutine);
         }
@@ -192,9 +191,9 @@ public class SimulationController : MonoBehaviour
             // Check if all entities are dead
             if (Entities.Count == 0)
             {
-                Debug.Log("All entities are dead. Stopping simulation.");
                 StopSimulation();
                 UiController.Instance.OnSimulationEnded();
+                Debug.Log("All entities are dead. Stopping simulation.");
                 yield break;
             }
 
@@ -213,6 +212,7 @@ public class SimulationController : MonoBehaviour
             return;
         }
 
+        var deferredList = new List<GameObject>();
         for (var i = 0; i < numberOfEntities; i++)
         {
             // Generate a random position within the world boundaries
@@ -228,13 +228,14 @@ public class SimulationController : MonoBehaviour
             // If Entity GameObject is not null, register it
             if (entity)
             {
-                Entities.Add(entity);
+                deferredList.Add(entity);
             }
             else
             {
                 Debug.LogError("Entity prefab was not initiated!");
             }
         }
+        Entities.AddRange(deferredList);
 
         Debug.Log("Spawned " + Entities.Count + " entities.");
     }
@@ -280,7 +281,7 @@ public class SimulationController : MonoBehaviour
         // Remove dead entities from the list
         foreach (var entity in Entities)
         {
-            if (entity is not null)
+            if (entity != null)
             {
                 if (!entity.TryGetComponent<EntityController>(out var entityController))
                 {
@@ -307,9 +308,11 @@ public class SimulationController : MonoBehaviour
         });
     }
 
-    private void DeselectSelectedEntity()
+    // Called when right button is clicked, simulation is stopped, when another entity is selected and when multiple
+    // selection mode entered on Entity List UI
+    public void DeselectSelectedEntity()
     {
-        if (!_selectedEntity) return;
+        if (_selectedEntity == null) return;
 
         _selectedEntity.TryGetComponent<EntityController>(out var entityController);
         entityController.DeselectEntity();
@@ -317,7 +320,7 @@ public class SimulationController : MonoBehaviour
     }
 }
 
-public enum SimualtionSpeed
+public enum SimualationSpeed
 {
     Normal,
     Double,

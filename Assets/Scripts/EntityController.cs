@@ -2,6 +2,7 @@ using UnityEngine;
 using System.Collections;
 using Random = System.Random;
 using System;
+using UI_Panels;
 using UnityEngine.EventSystems;
 
 public class EntityController : MonoBehaviour
@@ -9,7 +10,7 @@ public class EntityController : MonoBehaviour
     // Public variables
     public float speed = 5f; // The speed at which the Entity moves
     public float entityIntervalCoefficient = 4f; // Coefficient to adjust the interval between direction changes
-    public float healthMeter = 100f; // The health meter of the Entity. 0.0f means dead, 100.0f means healthy
+    public float healthMeter = 10000f; // The health meter of the Entity. 0.0f means dead, 100.0f means healthy
     public float hungerMeter; // The hunger meter of the Entity. 100.0f means starving, 0.0f means full
 
     public float
@@ -89,7 +90,11 @@ public class EntityController : MonoBehaviour
 
     public void OnDeath()
     {
-        DeselectEntity();
+        if (SimulationController.Instance.GetSelectedEntity() == gameObject)
+        {
+            DeselectEntity();
+        }
+
         StopEntityCoroutines();
     }
 
@@ -103,7 +108,7 @@ public class EntityController : MonoBehaviour
         // Instantiate the outline and set it as a child of the entity
         var outlinePrefab = Resources.Load<GameObject>("EntitySelectionOutlinePrefab");
 
-        if (outlinePrefab is null)
+        if (outlinePrefab == null)
         {
             Debug.LogError("Entity selection outline prefab is not loaded!");
             return;
@@ -116,10 +121,10 @@ public class EntityController : MonoBehaviour
     {
         // Stop the Camera from following the Entity
         CameraController.Instance.StopFollowing();
-        UiController.Instance.HideEntityStatsPanel();
+        UiController.Instance.OnEntityDeselected();
 
         // Destroy the outline
-        if (_selectionOutline is not null)
+        if (_selectionOutline != null)
         {
             Destroy(_selectionOutline);
             _selectionOutline = null;
@@ -141,13 +146,13 @@ public class EntityController : MonoBehaviour
 
     private void StopEntityCoroutines()
     {
-        if (_updateDirectionCoroutine is not null)
+        if (_updateDirectionCoroutine != null)
         {
             StopCoroutine(_updateDirectionCoroutine);
             _updateDirectionCoroutine = null;
         }
 
-        if (_incrementHungerMeterCoroutine is not null)
+        if (_incrementHungerMeterCoroutine != null)
         {
             StopCoroutine(_incrementHungerMeterCoroutine);
             _incrementHungerMeterCoroutine = null;

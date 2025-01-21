@@ -36,7 +36,7 @@ public class CameraController : MonoBehaviour
 
     void Update()
     {
-        if (_target is not null)
+        if (_target != null)
         {
             var targetPosition = _target.position;
             targetPosition.z = -10f; // Ensure the camera stays at the correct Z position
@@ -52,7 +52,7 @@ public class CameraController : MonoBehaviour
 
     public void FocusOnTarget(GameObject target)
     {
-        this._target = target.transform;
+        _target = target.transform;
         StartCoroutine(ZoomInOnTarget());
     }
 
@@ -122,7 +122,7 @@ public class CameraController : MonoBehaviour
 
     private IEnumerator ZoomInOnTarget()
     {
-        if (_mainCamera is not null) 
+        if (_mainCamera != null) 
         { 
             while (_mainCamera.orthographicSize > 8f)
             {
