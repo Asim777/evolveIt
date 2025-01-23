@@ -8,14 +8,14 @@ using UnityEngine.EventSystems;
 public class EntityController : MonoBehaviour
 {
     // Public variables
-    public float age = 0; // Age of the Entity. 
+    public float age; // Age of the Entity. 
     public float speed = 5f; // The speed at which the Entity moves
     public float entityIntervalCoefficient = 4f; // Coefficient to adjust the interval between direction changes
     public float healthMeter = 10000f; // The health meter of the Entity. 0.0f means dead, 100.0f means healthy
     public float hungerMeter; // The hunger meter of the Entity. 100.0f means starving, 0.0f means full
 
-    private bool isMating = false; // Is the Entity in process of Mating?
-    private int matingCounter; // Counter to count the steps the Entity was in Mating
+    private bool _isMating; // Is the Entity in process of Mating?
+    private int _matingCounter; // Counter to count the steps the Entity was in Mating
 
     public float
         reproductionMeter; // The reproduction meter of the Entity. 100.0f means ready to reproduce, 0.0f means not ready
@@ -53,18 +53,17 @@ public class EntityController : MonoBehaviour
     public void OnSimulationUpdate()
     {
         // If Entity is mating, it should be immobilized for 3 moves
-        if (isMating) 
+        if (_isMating) 
         {
-            if (matingCounter < 3) 
+            if (_matingCounter < 3) 
             {
-                matingCounter++;
-                return;
-            }
-            else 
+                _matingCounter++;
+            } 
+            else
             {
+                _isMating = false;
                 reproductionMeter = Mathf.Max(reproductionMeter - 50, 0);
-                 // TODO: ReproductionMeter of other Entity should go down as well
-                SimulationController.Instance.SpawnEntity(gameObject);
+                SimulationController.Instance.SpawnEntity(gameObject.transform.position);
             }
         }       
         
@@ -158,6 +157,12 @@ public class EntityController : MonoBehaviour
         SelectEntity(false);
     }
 
+    public void Mate()
+    {
+        _isMating = true;
+        _matingCounter = 0;
+    }
+
     private void StartEntityCoroutines()
     {
         _updateDirectionCoroutine ??= StartCoroutine(UpdateMovementDirection());
@@ -199,7 +204,7 @@ public class EntityController : MonoBehaviour
         while (SimulationController.Instance.simulationState == SimulationState.Running && healthMeter > 0f)
         {
             // Increase the age of the Entity
-            if (age < 120) = age += 1;
+            if (age < 120) age += 1;
             // Increase the Entity state meters and reproduction meter. Cap the meters at 100
             if (hungerMeter < 100) hungerMeter += 1f;
             if (reproductionMeter < 100) reproductionMeter += 1f;
@@ -238,14 +243,12 @@ public class EntityController : MonoBehaviour
             hungerMeter = Mathf.Max(hungerMeter - 10f, 0f);
             SimulationController.Instance.RemoveFood(other.gameObject);
         }
-        
-        if (other.CompareTag("Entity"))
+
+        // If reproduction drive is high enough, mate with the encountered Entity producing offspring
+        if (other.CompareTag("Entity") && reproductionMeter > 50)
         {
-            // If reproduction drive is high enough, mate with the encountered Entity producing offspring
-            if (reproductionMeter > 50) 
-            {
-                isMating = true;
-                matingCounter = 0;
+            Mate();
+            other.gameObject.GetComponent<EntityController>()?.Mate();
         }
     }
 }

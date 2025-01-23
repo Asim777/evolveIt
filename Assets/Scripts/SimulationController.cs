@@ -20,7 +20,7 @@ public class SimulationController : MonoBehaviour
     // World Settings
     public int numberOfEntities; // Number of entities to spawn initially
     public int initialNumberOfFood; // Number of food items to spawn initially
-    public int perStepumberOfFood; // Number of food to spawn every simulation step
+    public int perStepNumberOfFood; // Number of food to spawn every simulation step
     public int worldSize; // World is square shaped
 
     // Private variables
@@ -183,7 +183,7 @@ public class SimulationController : MonoBehaviour
         while (simulationState == SimulationState.Running)
         {
             RemoveDeadEntities();
-            SpawnFood(numberOfFood);
+            SpawnFood(perStepNumberOfFood);
 
             _timeElapsedInCurrentSession = DateTime.Now - _startTime;
             var timeToDisplay = _totalTimeElapsed + _timeElapsedInCurrentSession;
@@ -205,7 +205,6 @@ public class SimulationController : MonoBehaviour
 
     private void SpawnInitialEntities()
     {
-        // Load the prefab from Resources
         var entityPrefab = Resources.Load<GameObject>("EntityPrefab");
 
         if (!entityPrefab)
@@ -242,6 +241,15 @@ public class SimulationController : MonoBehaviour
         Debug.Log("Spawned " + Entities.Count + " entities.");
     }
 
+    public void SpawnEntity(Vector2 position)
+    {
+        // Instantiate the entity and position it
+        var entityPrefab = Resources.Load<GameObject>("EntityPrefab");
+        var entity = Instantiate(entityPrefab, position, Quaternion.identity);
+        entity.name = "Entity_" + Entities.Count;
+        Entities.Add(entity);
+    }
+    
     private void SpawnFood(int numberOfFood)
     {
         Debug.Log("Spawning food");
