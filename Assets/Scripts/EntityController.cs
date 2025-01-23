@@ -14,6 +14,9 @@ public class EntityController : MonoBehaviour
     public float healthMeter = 10000f; // The health meter of the Entity. 0.0f means dead, 100.0f means healthy
     public float hungerMeter; // The hunger meter of the Entity. 100.0f means starving, 0.0f means full
 
+    private bool isMating = false; // Is the Entity in process of Mating?
+    private int matingCounter; // Counter to count the steps the Entity was in Mating
+
     public float
         reproductionMeter; // The reproduction meter of the Entity. 100.0f means ready to reproduce, 0.0f means not ready
 
@@ -49,6 +52,22 @@ public class EntityController : MonoBehaviour
 
     public void OnSimulationUpdate()
     {
+        // If Entity is mating, it should be immobilized for 3 moves
+        if (isMating) 
+        {
+            if (matingCounter < 3) 
+            {
+                matingCounter++;
+                return;
+            }
+            else 
+            {
+                reproductionMeter = Mathf.Max(reproductionMeter - 50, 0);
+                 // TODO: ReproductionMeter of other Entity should go down as well
+                SimulationController.Instance.SpawnEntity(gameObject);
+            }
+        }       
+        
         if (TryGetComponent<Rigidbody2D>(out var rb))
         {
             // Allow Entities to move again
@@ -225,9 +244,8 @@ public class EntityController : MonoBehaviour
             // If reproduction drive is high enough, mate with the encountered Entity producing offspring
             if (reproductionMeter > 50) 
             {
-                reproductionMeter = Mathf.Max(reproductionMeter - 50, 0);
-                // TODO: ReproductionMeter of other Entity should go down as well
-                SimulationController.Instance.SpawnEntity(gameObject);
+                isMating = true;
+                matingCounter = 0;
         }
     }
 }
