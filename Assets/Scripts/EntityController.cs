@@ -8,6 +8,7 @@ using UnityEngine.EventSystems;
 public class EntityController : MonoBehaviour
 {
     // Public variables
+    public float age = 0; // Age of the Entity. 
     public float speed = 5f; // The speed at which the Entity moves
     public float entityIntervalCoefficient = 4f; // Coefficient to adjust the interval between direction changes
     public float healthMeter = 10000f; // The health meter of the Entity. 0.0f means dead, 100.0f means healthy
@@ -25,7 +26,7 @@ public class EntityController : MonoBehaviour
         _updateDirectionCoroutine; // Reference to the coroutine that updates the movement direction of Entities
 
     private Coroutine
-        _incrementHungerMeterCoroutine; // Reference to the coroutine that increments the hunger meter of Entities
+        _updateInternalStatesCoroutine; // Reference to the coroutine that updates internal states of Entities, such as hunger, reproductive drive or age
 
     private const float
         HungerImportance =
@@ -141,7 +142,7 @@ public class EntityController : MonoBehaviour
     private void StartEntityCoroutines()
     {
         _updateDirectionCoroutine ??= StartCoroutine(UpdateMovementDirection());
-        _incrementHungerMeterCoroutine ??= StartCoroutine(UpdateInternalStates());
+        _updateInternalStatesCoroutine ??= StartCoroutine(UpdateInternalStates());
     }
 
     private void StopEntityCoroutines()
@@ -152,10 +153,10 @@ public class EntityController : MonoBehaviour
             _updateDirectionCoroutine = null;
         }
 
-        if (_incrementHungerMeterCoroutine != null)
+        if (_updateInternalStatesCoroutine != null)
         {
-            StopCoroutine(_incrementHungerMeterCoroutine);
-            _incrementHungerMeterCoroutine = null;
+            StopCoroutine(_updateInternalStatesCoroutine);
+            _updateInternalStatesCoroutine = null;
         }
     }
 
@@ -178,6 +179,8 @@ public class EntityController : MonoBehaviour
     {
         while (SimulationController.Instance.simulationState == SimulationState.Running && healthMeter > 0f)
         {
+            // Increase the age of the Entity
+            if (age < 120) = age += 1;
             // Increase the Entity state meters and reproduction meter. Cap the meters at 100
             if (hungerMeter < 100) hungerMeter += 1f;
             if (reproductionMeter < 100) reproductionMeter += 1f;
