@@ -2,9 +2,8 @@ namespace UI_Panels
 {
     public interface IEntitiesWatchlistPanelController
     {
-        void OnEntitiesMultipleSelectionButtonClicked();
+        void OnListMultipleSelectionButtonClicked(EntityListType listType);
         void OnEwpAddToWathclistButtonClicked();
-        void OnWatchlistMultipleSelectionButtonClicked();
         void OnDeleteFromWatchlistButtonClicked();
     }
 }

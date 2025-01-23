@@ -101,7 +101,7 @@ namespace UI_Panels
 
         public void OnEntitiesMultipleSelectionButtonClicked()
         {
-            EntitiesWatchlistPanelController.Instance.OnEntitiesMultipleSelectionButtonClicked();
+            EntitiesWatchlistPanelController.Instance.OnListMultipleSelectionButtonClicked(EntityListType.EntityList);
         }
 
         public void OnEwpAddToWathclistButtonClicked()
@@ -111,7 +111,7 @@ namespace UI_Panels
 
         public void OnWatchlistMultipleSelectionButtonClicked()
         {
-            EntitiesWatchlistPanelController.Instance.OnWatchlistMultipleSelectionButtonClicked();
+            EntitiesWatchlistPanelController.Instance.OnListMultipleSelectionButtonClicked(EntityListType.Watchlist);
         }
 
         public void OnDeleteFromWatchlistButtonClicked()

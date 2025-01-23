@@ -1,4 +1,3 @@
-using System;
 using System.Collections.Generic;
 using System.Collections.Specialized;
 using TMPro;
@@ -26,8 +25,9 @@ namespace UI_Panels
 
         private GameObject _entityListItemPrefab;
 
-        private List<GameObject> _selectedEntityListItems = new();
-        private List<GameObject> _selectedWatchlistItems = new();
+        // First value in dictionary is list item, second value is entity object
+        private readonly Dictionary<GameObject, GameObject> _selectedEntityListItems = new();
+        private readonly Dictionary<GameObject, GameObject> _selectedWatchlistItems = new();
 
         private readonly Color32 _lightListItemColor = new(255, 255, 255, 171);
         private readonly Color32 _darkListItemColor = new(0, 0, 0, 171);
@@ -78,27 +78,52 @@ namespace UI_Panels
             }
         }
 
-        public void OnEntitiesMultipleSelectionButtonClicked()
+        public void OnListMultipleSelectionButtonClicked(EntityListType listType)
         {
+            Transform scrollView;
+            bool isMultipleSelectActive;
+            List<Transform> actionButtons;
+            
+            if (listType == EntityListType.EntityList)
+            {
+                scrollView = _entitiesScrollViewContent;
+                isMultipleSelectActive = _entityListMultipleSelectionActive;
+                actionButtons = new List<Transform> { _entityListAddToWatchlistButton };
+            }
+            else
+            {
+                scrollView = _watchlistScrollViewContent;
+                isMultipleSelectActive = _watchlistListMultipleSelectionActive;
+                actionButtons = new List<Transform> { _watchlistDeleteButton };
+            }
+
             // Show multiple selection toggles
-            foreach (Transform listItem in _entitiesScrollViewContent)
+            foreach (Transform listItem in scrollView)
             {
                 var button = listItem.transform.Find("ListItem_Button");
                 var toggleTransform = button.transform.Find("ListItem_Toggle");
                 var toggleCanvasGroup = toggleTransform.GetComponent<CanvasGroup>();
 
                 // Change the toggle visibility
-                if (_entityListMultipleSelectionActive)
+                if (isMultipleSelectActive)
                 {
                     toggleTransform.GetComponent<Toggle>().isOn = false;
                 }
-                toggleCanvasGroup.alpha = _entityListMultipleSelectionActive ? 0 : 1;
+
+                toggleCanvasGroup.alpha = isMultipleSelectActive ? 0 : 1;
             }
 
             // Clear the list of selected items when going out of Multi-select mode
-            if (_entityListMultipleSelectionActive)
+            if (isMultipleSelectActive)
             {
-                _selectedEntityListItems.Clear();
+                if (listType == EntityListType.EntityList)
+                {
+                    _selectedEntityListItems.Clear();
+                }
+                else
+                {
+                    _selectedWatchlistItems.Clear();
+                }
             }
 
             // All list items should be unselected when going to and from Multi-select mode
@@ -108,24 +133,33 @@ namespace UI_Panels
                 SimulationController.Instance.DeselectSelectedEntity();
             }
             
-            _entityListAddToWatchlistButton.gameObject.SetActive(_entityListMultipleSelectionActive);
+            foreach (var actionButton in actionButtons)
+            {
+                actionButton.gameObject.SetActive(!isMultipleSelectActive);
+            }
 
-            _entityListMultipleSelectionActive = !_entityListMultipleSelectionActive;
+            if (listType == EntityListType.EntityList)
+            {
+                _entityListMultipleSelectionActive = !isMultipleSelectActive;
+            }
+            else
+            {
+                _watchlistListMultipleSelectionActive = !isMultipleSelectActive;
+            }
         }
 
         public void OnEwpAddToWathclistButtonClicked()
         {
             foreach (var selectedEntityListItem in _selectedEntityListItems)
             {
-                if (!SimulationController.Instance.Watchlist.Contains(selectedEntityListItem))
+                if (!SimulationController.Instance.Watchlist.Contains(selectedEntityListItem.Value))
                 {
-                    SimulationController.Instance.Watchlist.Add(selectedEntityListItem);
+                    SimulationController.Instance.Watchlist.Add(selectedEntityListItem.Value);
                 }
             }
 
             _selectedEntityListItems.Clear();
-
-            OnEntitiesMultipleSelectionButtonClicked();
+            OnListMultipleSelectionButtonClicked(EntityListType.EntityList);
         }
 
         public void OnEspAddToWatchlistButtonClicked(GameObject selectedEntity)
@@ -134,14 +168,11 @@ namespace UI_Panels
             SelectListItem(selectedEntity.GetComponent<EntityController>(), EntityListType.Watchlist, true);
         }
 
-        public void OnWatchlistMultipleSelectionButtonClicked()
-        {
-            throw new NotImplementedException();
-        }
-
         public void OnDeleteFromWatchlistButtonClicked()
         {
-            throw new NotImplementedException();
+            SimulationController.Instance.Watchlist.RemoveRange(_selectedWatchlistItems.Values);
+            _selectedWatchlistItems.Clear();
+            OnListMultipleSelectionButtonClicked(EntityListType.Watchlist);
         }
 
         public void OnEntityDeselected()
@@ -172,25 +203,33 @@ namespace UI_Panels
             }
         }
 
-        private void OnEntityListToggleClicked(Toggle toggle, Transform listItem)
+        private void OnEntityListToggleClicked(Toggle toggle, GameObject entity, Transform listItem, EntityListType listType)
         {
             if (!toggle.isOn)
             {
-                _selectedEntityListItems.Add(listItem.gameObject);
-                toggle.isOn = true;
-                if (!_entityListAddToWatchlistButton.gameObject.activeSelf)
+                if (listType == EntityListType.EntityList)
                 {
-                    _entityListAddToWatchlistButton.gameObject.SetActive(true);
+                    _selectedEntityListItems.Add(listItem.gameObject, entity);
                 }
+                else
+                {
+                    _selectedWatchlistItems.Add(listItem.gameObject, entity);
+                }
+
+                toggle.isOn = true;
             }
             else
             {
-                _selectedEntityListItems.Remove(listItem.gameObject);
-                toggle.isOn = false;
-                if (_selectedEntityListItems.Count == 0)
+                if (listType == EntityListType.EntityList)
                 {
-                    _entityListAddToWatchlistButton.gameObject.SetActive(false);
+                    _selectedEntityListItems.Remove(listItem.gameObject);
                 }
+                else
+                {
+                    _selectedWatchlistItems.Remove(listItem.gameObject);
+                }
+
+                toggle.isOn = false;
             }
         }
 
@@ -204,7 +243,7 @@ namespace UI_Panels
             if (multipleSelectionState)
             {
                 var toggle = listItem.Find("ListItem_Button").transform.Find("ListItem_Toggle").GetComponent<Toggle>();
-                OnEntityListToggleClicked(toggle, listItem);
+                OnEntityListToggleClicked(toggle, entity, listItem, listType);
             }
             else
             {
@@ -354,7 +393,7 @@ namespace UI_Panels
         }
     }
 
-    internal enum EntityListType
+    public enum EntityListType
     {
         EntityList,
         Watchlist
