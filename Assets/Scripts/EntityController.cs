@@ -219,5 +219,15 @@ public class EntityController : MonoBehaviour
             hungerMeter = Mathf.Max(hungerMeter - 10f, 0f);
             SimulationController.Instance.RemoveFood(other.gameObject);
         }
+        
+        if (other.CompareTag("Entity"))
+        {
+            // If reproduction drive is high enough, mate with the encountered Entity producing offspring
+            if (reproductionMeter > 50) 
+            {
+                reproductionMeter = Mathf.Max(reproductionMeter - 50, 0);
+                // TODO: ReproductionMeter of other Entity should go down as well
+                SimulationController.Instance.SpawnEntity(gameObject);
+        }
     }
 }
