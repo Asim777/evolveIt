@@ -291,7 +291,7 @@ public class SimulationController : MonoBehaviour
                     entitiesToRemove.Add(entity);
                 }
 
-                if (entityController.healthMeter <= 0f)
+                if (entityController.healthMeter <= 0f || entityController.age <= 120)
                 {
                     Debug.Log("Entity died because health reached 0 : " + entity.name);
                     entitiesToRemove.Add(entity);
