@@ -1,6 +1,7 @@
 using System;
 using System.Collections;
 using System.Collections.Generic;
+using System.Linq;
 using UI_Panels;
 using UnityEngine;
 using Util;
@@ -20,11 +21,12 @@ public class SimulationController : MonoBehaviour
     // World Settings
     public int numberOfEntities; // Number of entities to spawn initially
     public int initialNumberOfFood; // Number of food items to spawn initially
-    public int perStepNumberOfFood; // Number of food to spawn every simulation step
+    public float numberOfFoodPerStep; // Number of food to spawn every simulation step
     public int worldSize; // World is square shaped
 
     // Private variables
     private static readonly Random Rnd = new();
+    private int _entityCounter;
     public readonly RangeObservableCollection<GameObject> Entities = new();
     public readonly RangeObservableCollection<GameObject> Watchlist = new();
     private readonly List<GameObject> _foodItems = new();
@@ -33,6 +35,7 @@ public class SimulationController : MonoBehaviour
     private TimeSpan _timeElapsedInCurrentSession = TimeSpan.Zero;
     private DateTime _startTime; // Time when the simulation started
     private Coroutine _simulationJobsCoroutine;
+    private Coroutine _spawnFoodCoroutine;
 
     public void Awake()
     {
@@ -52,7 +55,7 @@ public class SimulationController : MonoBehaviour
     {
         if (simulationState == SimulationState.Running)
         {
-            foreach (var entity in Entities)
+            foreach (var entity in Entities.ToList())
             {
                 if (!entity) continue;
 
@@ -84,6 +87,7 @@ public class SimulationController : MonoBehaviour
         StartCoroutine(InitializeSimulation());
         simulationState = SimulationState.Running;
         _simulationJobsCoroutine ??= StartCoroutine(LaunchSimulationJobs());
+        _spawnFoodCoroutine ??= StartCoroutine(SpawnRegularFood());
         Debug.Log("Simulation Started.");
     }
 
@@ -147,14 +151,12 @@ public class SimulationController : MonoBehaviour
         // Reset the time elapsed
         _timeElapsedInCurrentSession = TimeSpan.Zero;
         _totalTimeElapsed = TimeSpan.Zero;
-
-        // Stop the simulation jobs coroutine
-        if (_simulationJobsCoroutine != null)
-        {
-            StopCoroutine(_simulationJobsCoroutine);
-        }
+        _entityCounter = 0;
+        
+        StopAllCoroutines();
 
         _simulationJobsCoroutine = null;
+        _spawnFoodCoroutine = null;
         Debug.Log("Simulation Stopped.");
     }
 
@@ -172,18 +174,18 @@ public class SimulationController : MonoBehaviour
     private IEnumerator InitializeSimulation()
     {
         // Using Coroutine to spread out the spawning over multiple frames
-        SpawnFood(initialNumberOfFood);
+        SpawnInitialFood();
         SpawnInitialEntities();
 
         yield return true;
     }
 
+    // All this work is done once per Simulation step
     private IEnumerator LaunchSimulationJobs()
     {
         while (simulationState == SimulationState.Running)
         {
             RemoveDeadEntities();
-            SpawnFood(perStepNumberOfFood);
 
             _timeElapsedInCurrentSession = DateTime.Now - _startTime;
             var timeToDisplay = _totalTimeElapsed + _timeElapsedInCurrentSession;
@@ -237,6 +239,7 @@ public class SimulationController : MonoBehaviour
             }
         }
         Entities.AddRange(deferredList);
+        _entityCounter += deferredList.Count;
 
         Debug.Log("Spawned " + Entities.Count + " entities.");
     }
@@ -244,15 +247,16 @@ public class SimulationController : MonoBehaviour
     public void SpawnEntity(Vector2 position)
     {
         // Instantiate the entity and position it
+        _entityCounter++;
         var entityPrefab = Resources.Load<GameObject>("EntityPrefab");
         var entity = Instantiate(entityPrefab, position, Quaternion.identity);
-        entity.name = "Entity_" + Entities.Count;
+        entity.name = "Entity_" + _entityCounter;
         Entities.Add(entity);
+        Debug.Log("New entity is born " + entity.name);
     }
     
-    private void SpawnFood(int numberOfFood)
+    private void SpawnInitialFood()
     {
-        Debug.Log("Spawning food");
         // Load the prefab from Resources
         var foodPrefab = Resources.Load<GameObject>("FoodPrefab");
 
@@ -262,26 +266,47 @@ public class SimulationController : MonoBehaviour
             return;
         }
 
-        for (var i = 0; i < numberOfFood; i++)
+        for (var i = 0; i < initialNumberOfFood; i++)
         {
-            // Generate a random position within the world boundaries
-            var randomPosition = new Vector2(
-                Rnd.Next(-worldSize / 2, worldSize / 2),
-                Rnd.Next(-worldSize / 2, worldSize / 2)
-            );
+            SpawnFood(foodPrefab);
+        }
+    }
 
-            // Instantiate the food and position it
-            var food = Instantiate(foodPrefab, randomPosition, Quaternion.identity);
+    private IEnumerator SpawnRegularFood()
+    {
+        while (simulationState == SimulationState.Running)
+        {
+            // If numberOfFoodPerStep is lower than 1, we want to skip some steps before spawning food. 
+            var foodProductionIntervalCoefficient = numberOfFoodPerStep < 1 ? 1 / numberOfFoodPerStep : 1;
+            var foodPrefab = Resources.Load<GameObject>("FoodPrefab");
+            var numberOfFood = numberOfFoodPerStep < 1 ? 1 : numberOfFoodPerStep;
+            for (var i = 0; i < numberOfFood; i++)
+            {
+                SpawnFood(foodPrefab);
+            }
+            yield return new WaitForSeconds(SimulationStepInterval * foodProductionIntervalCoefficient);
+        }
+    }
+    
+    private void SpawnFood(GameObject foodPrefab)
+    {
+        // Generate a random position within the world boundaries
+        var randomPosition = new Vector2(
+            Rnd.Next(-worldSize / 2, worldSize / 2),
+            Rnd.Next(-worldSize / 2, worldSize / 2)
+        );
 
-            // If Entity GameObject is not null, register it
-            if (food)
-            {
-                _foodItems.Add(food);
-            }
-            else
-            {
-                Debug.LogError("Food prefab was not initiated!");
-            }
+        // Instantiate the food and position it
+        var food = Instantiate(foodPrefab, randomPosition, Quaternion.identity);
+
+        // If Entity GameObject is not null, register it
+        if (food)
+        {
+            _foodItems.Add(food);
+        }
+        else
+        {
+            Debug.LogError("Food prefab was not initiated!");
         }
     }
 
@@ -299,7 +324,7 @@ public class SimulationController : MonoBehaviour
                     entitiesToRemove.Add(entity);
                 }
 
-                if (entityController.healthMeter <= 0f || entityController.age <= 120)
+                if (entityController.healthMeter <= 0f || entityController.age >= 120)
                 {
                     Debug.Log("Entity died because health reached 0 : " + entity.name);
                     entitiesToRemove.Add(entity);

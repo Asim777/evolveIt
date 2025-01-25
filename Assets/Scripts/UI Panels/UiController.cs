@@ -173,13 +173,15 @@ namespace UI_Panels
             while (entity != null && SimulationController.Instance.simulationState == SimulationState.Running)
             {
                 GameObject.Find("ESP_Name").GetComponent<TextMeshProUGUI>().text = entity.gameObject.name;
+                GameObject.Find("ESP_Age").GetComponent<TextMeshProUGUI>().text = "Age: " + entity.age;
                 GameObject.Find("ESP_Health").GetComponent<TextMeshProUGUI>().text =
                     "Health: " + Math.Round(entity.healthMeter, 2);
                 GameObject.Find("ESP_Hunger").GetComponent<TextMeshProUGUI>().text =
                     "Hunger: " + Math.Round(entity.hungerMeter, 2);
                 GameObject.Find("ESP_Reproduction").GetComponent<TextMeshProUGUI>().text =
                     "Reproduction: " + Math.Round(entity.reproductionMeter, 2);
-
+                GameObject.Find("ESP_IsMating").GetComponent<TextMeshProUGUI>().text = "Is Mating: " + entity.isMating;
+                
                 yield return new WaitForSeconds(SimulationController.SimulationStepInterval);
             }
         }

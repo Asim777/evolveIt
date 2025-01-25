@@ -11,11 +11,9 @@ public class EntityController : MonoBehaviour
     public float age; // Age of the Entity. 
     public float speed = 5f; // The speed at which the Entity moves
     public float entityIntervalCoefficient = 4f; // Coefficient to adjust the interval between direction changes
-    public float healthMeter = 10000f; // The health meter of the Entity. 0.0f means dead, 100.0f means healthy
+    public float healthMeter = 100f; // The health meter of the Entity. 0.0f means dead, 100.0f means healthy
     public float hungerMeter; // The hunger meter of the Entity. 100.0f means starving, 0.0f means full
-
-    private bool _isMating; // Is the Entity in process of Mating?
-    private int _matingCounter; // Counter to count the steps the Entity was in Mating
+    public bool isMating; // Is the Entity in process of Mating?
 
     public float
         reproductionMeter; // The reproduction meter of the Entity. 100.0f means ready to reproduce, 0.0f means not ready
@@ -52,24 +50,10 @@ public class EntityController : MonoBehaviour
 
     public void OnSimulationUpdate()
     {
-        // If Entity is mating, it should be immobilized for 3 moves
-        if (_isMating) 
+        // If Entity is mating, it should be immobilized
+        if (!isMating & TryGetComponent<Rigidbody2D>(out var rb))
         {
-            if (_matingCounter < 3) 
-            {
-                _matingCounter++;
-            } 
-            else
-            {
-                _isMating = false;
-                reproductionMeter = Mathf.Max(reproductionMeter - 50, 0);
-                SimulationController.Instance.SpawnEntity(gameObject.transform.position);
-            }
-        }       
-        
-        if (TryGetComponent<Rigidbody2D>(out var rb))
-        {
-            // Allow Entities to move again
+            // Allow Entities to move after simulation pause
             rb.bodyType = RigidbodyType2D.Dynamic;
 
             // Move the entity in the direction it is facing
@@ -78,10 +62,6 @@ public class EntityController : MonoBehaviour
                 Mathf.Sin(transform.eulerAngles.z * Mathf.Deg2Rad)
             );
             rb.linearVelocity = facingDirection * speed;
-        }
-        else
-        {
-            Debug.LogError("Rigidbody2D component not found on Entity." + gameObject.name);
         }
     }
 
@@ -157,12 +137,6 @@ public class EntityController : MonoBehaviour
         SelectEntity(false);
     }
 
-    public void Mate()
-    {
-        _isMating = true;
-        _matingCounter = 0;
-    }
-
     private void StartEntityCoroutines()
     {
         _updateDirectionCoroutine ??= StartCoroutine(UpdateMovementDirection());
@@ -171,29 +145,29 @@ public class EntityController : MonoBehaviour
 
     private void StopEntityCoroutines()
     {
-        if (_updateDirectionCoroutine != null)
-        {
-            StopCoroutine(_updateDirectionCoroutine);
-            _updateDirectionCoroutine = null;
-        }
-
-        if (_updateInternalStatesCoroutine != null)
-        {
-            StopCoroutine(_updateInternalStatesCoroutine);
-            _updateInternalStatesCoroutine = null;
-        }
+        StopAllCoroutines();
+        _updateDirectionCoroutine = null;
+        _updateInternalStatesCoroutine = null;
     }
 
     private IEnumerator UpdateMovementDirection()
     {
-        while (SimulationController.Instance.simulationState == SimulationState.Running && healthMeter > 0f)
+        while (true)
         {
-            // Generate a random angle to turn
-            float randomAngle = Rnd.Next(-90, 90);
-            _currentDirection += randomAngle;
-            // Apply the rotation to the Entity
-            transform.rotation = Quaternion.Euler(0, 0, _currentDirection);
-
+            if (SimulationController.Instance.simulationState == SimulationState.Running && healthMeter > 0f && !isMating)
+            {
+                // Generate a random angle to turn
+                float randomAngle = Rnd.Next(-90, 90);
+                _currentDirection += randomAngle;
+                // Apply the rotation to the Entity
+                transform.rotation = Quaternion.Euler(0, 0, _currentDirection);
+            }
+            else
+            {
+                yield return null; // pause the coroutine
+                continue;
+            }
+            
             // Wait for the next direction change interval
             yield return new WaitForSeconds(SimulationController.SimulationStepInterval / entityIntervalCoefficient);
         }
@@ -235,6 +209,16 @@ public class EntityController : MonoBehaviour
         }
     }
 
+    private IEnumerator GiveBirth(EntityController otherController)
+    {
+        yield return new WaitForSeconds(SimulationController.SimulationStepInterval * 15);
+        isMating = false;
+        otherController.isMating = false;
+        reproductionMeter = Mathf.Max(reproductionMeter - 50, 0);
+        otherController.reproductionMeter = Mathf.Max(otherController.reproductionMeter - 50, 0);
+        SimulationController.Instance.SpawnEntity(gameObject.transform.position);
+    }
+
     private void OnTriggerEnter2D(Collider2D other)
     {
         if (other.CompareTag("Food"))
@@ -243,12 +227,18 @@ public class EntityController : MonoBehaviour
             hungerMeter = Mathf.Max(hungerMeter - 10f, 0f);
             SimulationController.Instance.RemoveFood(other.gameObject);
         }
-
-        // If reproduction drive is high enough, mate with the encountered Entity producing offspring
-        if (other.CompareTag("Entity") && reproductionMeter > 50)
+        // If not already mating, and reproduction drive is high enough, mate with the encountered Entity producing offspring.
+        // GetInstanceID comparison is for symmetry break so that only one Entity runs reproduction code
+        else if (other.CompareTag("Entity") && isMating == false && reproductionMeter > 50 && GetInstanceID() < other.GetInstanceID())
         {
-            Mate();
-            other.gameObject.GetComponent<EntityController>()?.Mate();
+            var otherController = other.gameObject.GetComponent<EntityController>();
+            if (otherController is { isMating: false, reproductionMeter: > 50 })
+            {
+                isMating = true;
+                otherController.isMating = true;
+                StartCoroutine(GiveBirth(otherController));
+                Debug.Log(gameObject.name + " is mating with " + other.gameObject.name);
+            }
         }
     }
 }
