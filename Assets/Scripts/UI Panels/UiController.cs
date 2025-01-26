@@ -69,6 +69,32 @@ namespace UI_Panels
             HandleSimulationStop();
         }
 
+        public void OnSpeedDownButtonClicked()
+        {
+            if (SimulationController.SimulationSpeed == SimulationSpeed.X05) return;
+            SimulationController.SimulationSpeed -= 1;
+            // If it is the lowest speed, disable Speed Down button
+            if (SimulationController.SimulationSpeed == SimulationSpeed.X05)
+            {
+                var speedDownButton = GameObject.Find("TCP_SpeedDownButton").GetComponent<Button>();
+                speedDownButton.interactable = false;
+                speedDownButton.enabled = false;
+            }
+        }
+
+        public void OnSpeedUpButtonClicked()
+        {
+            if (SimulationController.SimulationSpeed == SimulationSpeed.X16) return;
+            SimulationController.SimulationSpeed += 1;
+            // If it is the highest speed, disable Speed Up button
+            if (SimulationController.SimulationSpeed == 0)
+            {
+                var speedUpButton = GameObject.Find("TCP_SpeedUpButton").GetComponent<Button>();
+                speedUpButton.interactable = false;
+                speedUpButton.enabled = false;
+            }
+        }
+
         public void OnEspAddToWatchlistButtonClicked()
         {
             var selectedEntity = SimulationController.Instance.GetSelectedEntity();
@@ -139,7 +165,7 @@ namespace UI_Panels
             }
         }
 
-        public void UpdateSimulationInformationPanel(TimeSpan timeElapsed, SimualationSpeed simulationSpeed,
+        public void UpdateSimulationInformationPanel(TimeSpan timeElapsed, SimulationSpeed simulationSpeed,
             int entitiesCount, int foodCount)
         {
             var formattedTimeElapsed = timeElapsed.ToString(@"hh\:mm\:ss");
@@ -182,7 +208,7 @@ namespace UI_Panels
                     "Reproduction: " + Math.Round(entity.reproductionMeter, 2);
                 GameObject.Find("ESP_IsMating").GetComponent<TextMeshProUGUI>().text = "Is Mating: " + entity.isMating;
                 
-                yield return new WaitForSeconds(SimulationController.SimulationStepInterval);
+                yield return new WaitForSeconds(SimulationController.GetSimulationStepInterval());
             }
         }
 

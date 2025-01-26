@@ -4,6 +4,8 @@ namespace UI_Panels
     {
         void OnResumePauseButtonClicked();
         void OnStopButtonClicked();
+        void OnSpeedDownButtonClicked();
+        void OnSpeedUpButtonClicked();
         void OnEspAddToWatchlistButtonClicked();
         void OnEntitiesWatchlistPanelClicked();
         void OnGeneticInformationPanelClicked();

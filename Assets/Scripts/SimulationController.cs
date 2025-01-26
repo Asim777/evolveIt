@@ -12,11 +12,8 @@ public class SimulationController : MonoBehaviour
     // Public variables
     public static SimulationController Instance { get; private set; } // Singleton instance for easy access
 
-    internal const float
-        SimulationStepInterval = 0.5f; // Interval in seconds to evaluate the entities and update the simulation state
-
     public SimulationState simulationState = SimulationState.Stopped; // State of the simulation
-    public SimualationSpeed simulationSpeed = SimualationSpeed.Normal; // Speed of the simulation
+    public static SimulationSpeed SimulationSpeed = SimulationSpeed.X1; // Speed of the simulation
 
     // World Settings
     public int numberOfEntities; // Number of entities to spawn initially
@@ -62,7 +59,7 @@ public class SimulationController : MonoBehaviour
                 if (entity.TryGetComponent(out EntityController entityController))
                 {
                     entityController.OnSimulationUpdate();
-                }
+                } 
             }
         }
 
@@ -130,6 +127,7 @@ public class SimulationController : MonoBehaviour
     public void StopSimulation()
     {
         simulationState = SimulationState.Stopped;
+        SimulationSpeed = SimulationSpeed.X1;
 
         // Destroy all entities GameObjects
         foreach (var entity in Entities)
@@ -171,6 +169,11 @@ public class SimulationController : MonoBehaviour
         return _selectedEntity;
     }
 
+    public static float GetSimulationStepInterval()
+    {
+        return 1 / SimulationSpeed.GetValue();
+    }
+
     private IEnumerator InitializeSimulation()
     {
         // Using Coroutine to spread out the spawning over multiple frames
@@ -189,7 +192,7 @@ public class SimulationController : MonoBehaviour
 
             _timeElapsedInCurrentSession = DateTime.Now - _startTime;
             var timeToDisplay = _totalTimeElapsed + _timeElapsedInCurrentSession;
-            UiController.Instance.UpdateSimulationInformationPanel(timeToDisplay, simulationSpeed, Entities.Count,
+            UiController.Instance.UpdateSimulationInformationPanel(timeToDisplay, SimulationSpeed, Entities.Count,
                 _foodItems.Count);
 
             // Check if all entities are dead
@@ -201,7 +204,7 @@ public class SimulationController : MonoBehaviour
                 yield break;
             }
 
-            yield return new WaitForSeconds(SimulationStepInterval);
+            yield return new WaitForSeconds(GetSimulationStepInterval());
         }
     }
 
@@ -284,7 +287,7 @@ public class SimulationController : MonoBehaviour
             {
                 SpawnFood(foodPrefab);
             }
-            yield return new WaitForSeconds(SimulationStepInterval * foodProductionIntervalCoefficient);
+            yield return new WaitForSeconds(GetSimulationStepInterval() * foodProductionIntervalCoefficient);
         }
     }
     
@@ -355,14 +358,41 @@ public class SimulationController : MonoBehaviour
     }
 }
 
-public enum SimualationSpeed
+public enum SimulationSpeed
 {
-    Normal,
-    Double,
-    Quadruple,
-    Octuple,
+    X05,
+    X1,
+    X2,
+    X4,
+    X8,
     X16
 }
+
+public static class SimulationSpeedExtensions
+{
+    // Interval in seconds to evaluate the entities and update the simulation state
+    public static float GetValue(this SimulationSpeed speed)
+    {
+        switch (speed)
+        {
+            case SimulationSpeed.X05:
+                return 0.5f;
+            case SimulationSpeed.X1:
+                return 1.0f;
+            case SimulationSpeed.X2:
+                return 2.0f;
+            case SimulationSpeed.X4:
+                return 4.0f;
+            case SimulationSpeed.X8:
+                return 8.0f;
+            case SimulationSpeed.X16:
+                return 16.0f;
+            default:
+                throw new ArgumentOutOfRangeException();
+        }
+    }
+}
+
 
 public enum SimulationState
 {

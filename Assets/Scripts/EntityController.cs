@@ -61,7 +61,8 @@ public class EntityController : MonoBehaviour
                 Mathf.Cos(transform.eulerAngles.z * Mathf.Deg2Rad),
                 Mathf.Sin(transform.eulerAngles.z * Mathf.Deg2Rad)
             );
-            rb.linearVelocity = facingDirection * speed;
+
+            rb.linearVelocity = facingDirection * (speed * SimulationController.SimulationSpeed.GetValue());
         }
     }
 
@@ -154,7 +155,8 @@ public class EntityController : MonoBehaviour
     {
         while (true)
         {
-            if (SimulationController.Instance.simulationState == SimulationState.Running && healthMeter > 0f && !isMating)
+            if (SimulationController.Instance.simulationState == SimulationState.Running && healthMeter > 0f &&
+                !isMating)
             {
                 // Generate a random angle to turn
                 float randomAngle = Rnd.Next(-90, 90);
@@ -167,9 +169,9 @@ public class EntityController : MonoBehaviour
                 yield return null; // pause the coroutine
                 continue;
             }
-            
+
             // Wait for the next direction change interval
-            yield return new WaitForSeconds(SimulationController.SimulationStepInterval / entityIntervalCoefficient);
+            yield return new WaitForSeconds(SimulationController.GetSimulationStepInterval() / entityIntervalCoefficient);
         }
     }
 
@@ -205,13 +207,13 @@ public class EntityController : MonoBehaviour
                 100f);
 
             // Wait 1 second for the next increment
-            yield return new WaitForSeconds(SimulationController.SimulationStepInterval);
+            yield return new WaitForSeconds(SimulationController.GetSimulationStepInterval());
         }
     }
 
     private IEnumerator GiveBirth(EntityController otherController)
     {
-        yield return new WaitForSeconds(SimulationController.SimulationStepInterval * 15);
+        yield return new WaitForSeconds(SimulationController.GetSimulationStepInterval() * 5);
         isMating = false;
         otherController.isMating = false;
         reproductionMeter = Mathf.Max(reproductionMeter - 50, 0);
@@ -229,7 +231,8 @@ public class EntityController : MonoBehaviour
         }
         // If not already mating, and reproduction drive is high enough, mate with the encountered Entity producing offspring.
         // GetInstanceID comparison is for symmetry break so that only one Entity runs reproduction code
-        else if (other.CompareTag("Entity") && isMating == false && reproductionMeter > 50 && GetInstanceID() < other.GetInstanceID())
+        else if (other.CompareTag("Entity") && isMating == false && reproductionMeter > 50 &&
+                 GetInstanceID() < other.GetInstanceID())
         {
             var otherController = other.gameObject.GetComponent<EntityController>();
             if (otherController is { isMating: false, reproductionMeter: > 50 })
