@@ -1,9 +1,9 @@
-using UnityEngine;
-using System.Collections;
-using Random = System.Random;
 using System;
+using System.Collections;
 using UI_Panels;
+using UnityEngine;
 using UnityEngine.EventSystems;
+using Random = System.Random;
 
 public class EntityController : MonoBehaviour
 {
@@ -14,6 +14,7 @@ public class EntityController : MonoBehaviour
     public float healthMeter = 100f; // The health meter of the Entity. 0.0f means dead, 100.0f means healthy
     public float hungerMeter; // The hunger meter of the Entity. 100.0f means starving, 0.0f means full
     public bool isMating; // Is the Entity in process of Mating?
+    //public List<Gene> genome; // The genome of the Entity made from list of Genes
 
     public float
         reproductionMeter; // The reproduction meter of the Entity. 100.0f means ready to reproduce, 0.0f means not ready
@@ -44,7 +45,7 @@ public class EntityController : MonoBehaviour
         // Prevent the Entity from rotating
         _rb = GetComponent<Rigidbody2D>();
         _rb.constraints = RigidbodyConstraints2D.FreezeRotation;
-
+        
         StartEntityCoroutines();
     }
 
@@ -153,7 +154,7 @@ public class EntityController : MonoBehaviour
 
     private IEnumerator UpdateMovementDirection()
     {
-        while (true)
+        while (SimulationController.Instance.simulationState == SimulationState.Running)
         {
             if (SimulationController.Instance.simulationState == SimulationState.Running && healthMeter > 0f &&
                 !isMating)

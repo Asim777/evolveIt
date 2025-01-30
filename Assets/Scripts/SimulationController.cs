@@ -230,6 +230,8 @@ public class SimulationController : MonoBehaviour
             // Instantiate the entity and position it
             var entity = Instantiate(entityPrefab, randomPosition, Quaternion.identity);
             entity.name = "Entity_" + i;
+            entity.TryGetComponent<EntityController>(out var entityController);
+            //entityController.genome = GenerateRandomGenome();
 
             // If Entity GameObject is not null, register it
             if (entity)
@@ -356,6 +358,13 @@ public class SimulationController : MonoBehaviour
         entityController.DeselectEntity();
         _selectedEntity = null;
     }
+    
+    /*private List<Gene> GenerateRandomGenome()
+    {
+        var genome = new List<Gene>();
+        
+        return genome;
+    }*/
 }
 
 public enum SimulationSpeed
