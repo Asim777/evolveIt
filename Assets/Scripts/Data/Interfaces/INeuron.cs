@@ -55,10 +55,5 @@ namespace Data.Interfaces
                 _ => throw new System.ArgumentException("Invalid number of Neurons")
             };
         }
-
-        // Returns array of all Neurons
-        private static INeuron[] GetAllNeurons()
-        {
-        }
     }
 }
