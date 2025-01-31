@@ -40,19 +40,71 @@ namespace Data.Interfaces
                 ActivationGroup.Ag18 => GetNeurons(ActivationGroup.AG13).Concat(
                         new INeuron[]
                         {
-                            
+                            new ObstacleFront(),
+                            new EntityFront(),
+                            new FoodFront(),
+                            new And(),
+                            new Or()
                         }
-                        )
-                    .filter(neuron => neuron.ActivationGroup == ActivationGroup.Ag18),
-                ActivationGroup.Ag26 => GetAllNeurons()
-                    .filter(neuron => neuron.ActivationGroup == ActivationGroup.Ag26),
-                ActivationGroup.Ag38 => GetAllNeurons()
-                    .filter(neuron => neuron.ActivationGroup == ActivationGroup.Ag38),
-                ActivationGroup.Ag47 => GetAllNeurons()
-                    .filter(neuron => neuron.ActivationGroup == ActivationGroup.Ag47),
-                ActivationGroup.Ag54 => GetAllNeurons()
-                    .filter(neuron => neuron.ActivationGroup == ActivationGroup.Ag54),
-                _ => throw new System.ArgumentException("Invalid number of Neurons")
+                    ),
+                ActivationGroup.Ag26 => GetNeurons(ActivationGroup.Ag18).Concat(
+                        new INeuron[]
+                        {
+                            new ObstacleLeft(),
+                            new EntityLeft(),
+                            new FoodLeft(),
+                            new ObstacleRight(),
+                            new EntityRight(),
+                            new FoodRight(),
+                            new Less05(),
+                            new More05()
+                        }
+                    ),
+                ActivationGroup.Ag38 => GetNeurons(ActivationGroup.Ag26).Concat(
+                        new INeuron[]
+                        {
+                            new ObstacleBehind(),
+                            new EntityBehind(),
+                            new FoodBehind(),
+                            new GeneticSimilarityBehind(),
+                            new GeneticSimilarityAhead
+                            new GeneticSimilarityAround(),
+                            new GeneticSimilarityFront(),
+                            new GeneticSimilarityLeft(),
+                            new GeneticSimilarityRight(),
+                            new Less01(),
+                            new More09(),
+                            new Not()
+                        }
+                    ),
+                ActivationGroup.A47 => GetNeurons(ActivationGroup.Ag38).Concat(
+                        new INeuron[]
+                        {
+                            new EntityDensityAhead
+                            new EntityDensityAround(),
+                            new EntityDensityFront(),
+                            new EntityDensityLeft(),
+                            new EntityDensityRight(),
+                            new EntityDensityBehind(),
+                            new Xor(),
+                            new Less025(),
+                            new More075()
+                        }
+                    ),
+                ActivationGroup.A55 => GetNeurons(ActivationGroup.A47).Concat(
+                        new INeuron[]
+                        {
+                            new Hunger(),
+                            new ReproductiveDrive(),
+                            new Energy(),
+                            new Health(),
+                            new Age(),
+                            new P(),
+                            new Less075(),
+                            new More025()
+                        }
+                    ),
+                _ => throw new System.ArgumentException("Invalid Activation Group")
             };
         }
     }
