@@ -11,7 +11,15 @@ namespace Data.Neuron
             Category = category;
         }
     }
-
+    
+    public interface IInputNeuron
+    {
+    }
+    
+    public interface IOutputNeuron
+    {
+    }
+    
     // Extension method to get all neurons provided the ActivationGroup. We have 6 combinations of Neurons represented
     // by ActivationGroups each of which contains all Neurons from previous categories plus some new ones.
     public static class NeuronExtensions

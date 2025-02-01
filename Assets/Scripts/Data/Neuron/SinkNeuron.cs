@@ -1,6 +1,6 @@
 namespace Data.Neuron
 {
-    public abstract class SinkNeuron : Neuron
+    public abstract class SinkNeuron : Neuron, IOutputNeuron
     {
         private SinkNeuron(string id, INeuronCategory category) : base(id, category)
         {

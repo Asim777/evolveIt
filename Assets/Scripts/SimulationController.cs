@@ -2,6 +2,8 @@ using System;
 using System.Collections;
 using System.Collections.Generic;
 using System.Linq;
+using Data.Gene;
+using Data.Neuron;
 using UI_Panels;
 using UnityEngine;
 using Util;
@@ -20,6 +22,8 @@ public class SimulationController : MonoBehaviour
     public int initialNumberOfFood; // Number of food items to spawn initially
     public float numberOfFoodPerStep; // Number of food to spawn every simulation step
     public int worldSize; // World is square shaped
+    public ActivationGroup activationGroup; // Combination of Neurons to use in Simulation 
+    public int neuronConnectionLimit; // Maximum number of Genes that the Entities are allowed to have
 
     // Private variables
     private static readonly Random Rnd = new();
@@ -59,7 +63,7 @@ public class SimulationController : MonoBehaviour
                 if (entity.TryGetComponent(out EntityController entityController))
                 {
                     entityController.OnSimulationUpdate();
-                } 
+                }
             }
         }
 
@@ -150,7 +154,7 @@ public class SimulationController : MonoBehaviour
         _timeElapsedInCurrentSession = TimeSpan.Zero;
         _totalTimeElapsed = TimeSpan.Zero;
         _entityCounter = 0;
-        
+
         StopAllCoroutines();
 
         _simulationJobsCoroutine = null;
@@ -211,6 +215,10 @@ public class SimulationController : MonoBehaviour
     private void SpawnInitialEntities()
     {
         var entityPrefab = Resources.Load<GameObject>("EntityPrefab");
+        var neurons = NeuronExtensions.GetNeurons(activationGroup);
+        var sensorNeurons = neurons.OfType<SensorNeuron>().ToList();
+        var innerNeurons = neurons.OfType<InnerNeuron>().ToList();
+        var sinkNeurons = neurons.OfType<SinkNeuron>().ToList();
 
         if (!entityPrefab)
         {
@@ -227,11 +235,56 @@ public class SimulationController : MonoBehaviour
                 Rnd.Next(-worldSize / 2, worldSize / 2)
             );
 
+            var neuronConnections = GetRandomConnections(sensorNeurons, innerNeurons, sinkNeurons);
+            var genome = new List<Gene>();
+            foreach (var connection in neuronConnections)
+            {
+                // If we have a direct connection between a Sensor and Sink, we create a Gene and if it doesn't
+                // already exist in Genome, we add the Gene to Genome.
+                if (connection.Input is SensorNeuron sensorNeuron && connection.Output is SinkNeuron sinkNeuron)
+                {
+                    var newGene = new Gene(
+                        sensors: new List<Neuron> { sensorNeuron },
+                        inner: null,
+                        sink: sinkNeuron
+                    );
+
+                    if (!genome.Contains(newGene)) genome.Add(newGene);
+                }
+
+                // If it is a connection between Sensor and Inner
+                if (connection.Input is SensorNeuron && connection.Output is InnerNeuron innerNeuron)
+                {
+                    // Find all the connections between this Inner and any Sensors. We want to include all of them in
+                    // one Gene
+                    var allSensors = neuronConnections
+                        .Where(c => c.Input is SensorNeuron && c.Output == innerNeuron)
+                        .Select(c => c.Input as SensorNeuron)
+                        .ToList();
+
+                    // Find all the connections between this Inner and any Sinks. We want to create a separate Gene for
+                    // each of them with the list of Sensors and this Inner Neuron
+                    var allSinks = neuronConnections
+                        .Where(c => c.Input == innerNeuron && c.Output is SinkNeuron)
+                        .Select(c => c.Output as SinkNeuron);
+
+                    foreach (var sink in allSinks)
+                    {
+                        var geneToAdd = new Gene(
+                            sensors: allSensors.OfType<Neuron>().ToList(),
+                            inner: innerNeuron,
+                            sink: sink
+                        );
+                        if (!genome.Contains(geneToAdd)) genome.Add(geneToAdd);
+                    }
+                }
+            }
+            
             // Instantiate the entity and position it
             var entity = Instantiate(entityPrefab, randomPosition, Quaternion.identity);
             entity.name = "Entity_" + i;
             entity.TryGetComponent<EntityController>(out var entityController);
-            //entityController.genome = GenerateRandomGenome();
+            entityController.Genome = genome;
 
             // If Entity GameObject is not null, register it
             if (entity)
@@ -243,6 +296,7 @@ public class SimulationController : MonoBehaviour
                 Debug.LogError("Entity prefab was not initiated!");
             }
         }
+
         Entities.AddRange(deferredList);
         _entityCounter += deferredList.Count;
 
@@ -259,7 +313,7 @@ public class SimulationController : MonoBehaviour
         Entities.Add(entity);
         Debug.Log("New entity is born " + entity.name);
     }
-    
+
     private void SpawnInitialFood()
     {
         // Load the prefab from Resources
@@ -289,10 +343,11 @@ public class SimulationController : MonoBehaviour
             {
                 SpawnFood(foodPrefab);
             }
+
             yield return new WaitForSeconds(GetSimulationStepInterval() * foodProductionIntervalCoefficient);
         }
     }
-    
+
     private void SpawnFood(GameObject foodPrefab)
     {
         // Generate a random position within the world boundaries
@@ -358,11 +413,70 @@ public class SimulationController : MonoBehaviour
         entityController.DeselectEntity();
         _selectedEntity = null;
     }
-    
+
+    private List<NeuronConnection> GetRandomConnections(
+        List<SensorNeuron> sensorNeurons,
+        List<InnerNeuron> innerNeurons,
+        List<SinkNeuron> sinkNeurons
+    )
+    {
+        var neuronConnections = new List<NeuronConnection>();
+        for (var i = 0; i < neuronConnectionLimit; i++)
+        {
+            var connection = GenerateRandomConnection(sensorNeurons, innerNeurons, sinkNeurons, neuronConnections);
+            neuronConnections[i] = connection;
+        }
+
+        return neuronConnections;
+    }
+
+    private NeuronConnection GenerateRandomConnection(
+        List<SensorNeuron> sensorNeurons,
+        List<InnerNeuron> innerNeurons,
+        List<SinkNeuron> sinkNeurons,
+        List<NeuronConnection> neuronConnections
+    )
+    {
+        NeuronConnection connectionToAdd;
+        do
+        {
+            connectionToAdd = GetRandomNeuronConnection(
+                sensorNeurons.OfType<Neuron>().ToList(),
+                innerNeurons.OfType<Neuron>().ToList(),
+                sinkNeurons.OfType<Neuron>().ToList()
+            );
+        } while (neuronConnections.Any(nc => nc.Equals(connectionToAdd)));
+
+        return connectionToAdd;
+    }
+
+    private NeuronConnection GetRandomNeuronConnection(
+        List<Neuron> sensorNeurons,
+        List<Neuron> innerNeurons,
+        List<Neuron> sinkNeurons)
+    {
+        // Create a NeuronConnection and assign to the genome
+        var inputList = sensorNeurons.Concat(innerNeurons).ToList();
+        var outputList = sinkNeurons;
+        Random random = new();
+        var input = inputList[random.Next(0, inputList.Count)];
+        // If the input is a sensor, we can connect to both inner and sink neurons, otherwise, if input is
+        // inner, then we connect only to sink neurons
+        if (input is SensorNeuron)
+        {
+            outputList = outputList.Concat(innerNeurons).ToList();
+        }
+
+        var output = outputList[random.Next(0, inputList.Count)];
+
+        return new NeuronConnection((IInputNeuron)input, (IOutputNeuron)output);
+    }
+
+
     /*private List<Gene> GenerateRandomGenome()
     {
         var genome = new List<Gene>();
-        
+
         return genome;
     }*/
 }

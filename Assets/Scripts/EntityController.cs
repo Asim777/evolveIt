@@ -1,5 +1,7 @@
 using System;
 using System.Collections;
+using System.Collections.Generic;
+using Data.Gene;
 using UI_Panels;
 using UnityEngine;
 using UnityEngine.EventSystems;
@@ -7,36 +9,50 @@ using Random = System.Random;
 
 public class EntityController : MonoBehaviour
 {
-    // Public variables
-    public float age; // Age of the Entity. 
-    public float speed = 5f; // The speed at which the Entity moves
-    public float entityIntervalCoefficient = 4f; // Coefficient to adjust the interval between direction changes
-    public float healthMeter = 100f; // The health meter of the Entity. 0.0f means dead, 100.0f means healthy
-    public float hungerMeter; // The hunger meter of the Entity. 100.0f means starving, 0.0f means full
-    public bool isMating; // Is the Entity in process of Mating?
-    //public List<Gene> genome; // The genome of the Entity made from list of Genes
+    // Age of the Entity. 
+    public float age;
 
-    public float
-        reproductionMeter; // The reproduction meter of the Entity. 100.0f means ready to reproduce, 0.0f means not ready
+    // The speed at which the Entity moves
+    public float speed = 5f;
+
+    // Coefficient to adjust the interval between direction changes
+    public float entityIntervalCoefficient = 4f;
+
+    // The health meter of the Entity. 0.0f means dead, 100.0f means healthy
+    public float healthMeter = 100f;
+
+    // The hunger meter of the Entity. 100.0f means starving, 0.0f means full
+    public float hungerMeter;
+
+    // Is the Entity in process of Mating?
+    public bool isMating;
+
+    // The genome of the Entity made from list of Genes
+    public List<Gene> Genome;
+
+    // The reproduction meter of the Entity. 100.0f means ready to reproduce, 0.0f means not ready
+    public float reproductionMeter;
 
     // Private variables 
     private static readonly Random Rnd = new();
-    private Rigidbody2D _rb; // Reference to the Rigidbody2D component attached to the Entity
-    private float _currentDirection; // The current direction the Entity is facing. 0 means right. 
 
-    private Coroutine
-        _updateDirectionCoroutine; // Reference to the coroutine that updates the movement direction of Entities
+    // Reference to the Rigidbody2D component attached to the Entity
+    private Rigidbody2D _rb;
 
-    private Coroutine
-        _updateInternalStatesCoroutine; // Reference to the coroutine that updates internal states of Entities, such as hunger, reproductive drive or age
+    // The current direction the Entity is facing. 0 means right. 
+    private float _currentDirection;
 
-    private const float
-        HungerImportance =
-            0.4f; // The importance of hunger for the health of the Entity. The smaller the value, the more important it is
+    // Reference to the coroutine that updates the movement direction of Entities
+    private Coroutine _updateDirectionCoroutine;
 
-    private const float
-        ReproductionImportance =
-            15f; // The importance of reproduction for the health of the Entity. The smaller the value, the more important it is
+    // Reference to the coroutine that updates internal states of Entities, such as hunger, reproductive drive or age
+    private Coroutine _updateInternalStatesCoroutine;
+
+    // The importance of hunger for the health of the Entity. The smaller the value, the more important it is
+    private const float HungerImportance = 0.4f; 
+    
+    // The importance of reproduction for the health of the Entity. The smaller the value, the more important it is
+    private const float ReproductionImportance = 15f; 
 
     private GameObject _selectionOutline;
 

@@ -1,6 +1,6 @@
 namespace Data.Neuron
 {
-    public abstract class SensorNeuron : Neuron
+    public abstract class SensorNeuron : Neuron, IInputNeuron
     {
         private SensorNeuron(string id, INeuronCategory category, float value) : base(id, category)
         {
