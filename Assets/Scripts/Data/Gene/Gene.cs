@@ -5,10 +5,10 @@ namespace Data.Gene
 {
     public class Gene
     {
-        public List<Neuron.Neuron> Sensors { get; set; }
-        public Neuron.Neuron Inner { get; set; }
-        public Neuron.Neuron Sink { get; set; }
-        public string Name { get; set; }
+        private List<Neuron.Neuron> Sensors { get; }
+        private Neuron.Neuron Inner { get; }
+        private Neuron.Neuron Sink { get; }
+        public string Name { get; }
 
         public Gene(List<Neuron.Neuron> sensors, Neuron.Neuron inner, Neuron.Neuron sink)
         {
@@ -35,6 +35,14 @@ namespace Data.Gene
                 neuron = Sink;
             }
             return neuron;
+        }
+        
+        public List<Neuron.Neuron> GetAllNeurons()
+        {
+            var neurons = Sensors.Concat(new List<Neuron.Neuron> { Inner, Sink })
+                .Where(n => n != null)
+                .ToList();
+            return neurons;
         }
     }
 }

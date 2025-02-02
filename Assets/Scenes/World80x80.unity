@@ -1802,11 +1802,12 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: 
   simulationState: 2
-  simulationSpeed: 0
   numberOfEntities: 100
   initialNumberOfFood: 200
-  perStepNumberOfFood: 1
+  numberOfFoodPerStep: 0.5
   worldSize: 80
+  activationGroup: 0
+  neuronConnectionLimit: 4
 --- !u!4 &499449146
 Transform:
   m_ObjectHideFlags: 0

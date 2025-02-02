@@ -22,7 +22,7 @@ namespace UI_Panels
         private bool _isGipPanelOpen;
        
         private Coroutine _entityStatsPanelCoroutine;
-        
+
         void Awake()
         {
             if (Instance == null)
@@ -60,6 +60,8 @@ namespace UI_Panels
                     SimulationController.Instance.StartSimulation();
                     _playPauseButtonIcon.sprite = pauseIcon;
                     break;
+                default:
+                    throw new ArgumentOutOfRangeException();
             }
         }
 
@@ -123,6 +125,7 @@ namespace UI_Panels
             var gipContainer = GameObject.Find("GIP_container");
             ToggleSidebarPanel(gipContainer, _isGipPanelOpen);
             _isGipPanelOpen = !_isGipPanelOpen;
+            if (_isGipPanelOpen) GeneticInformationPanelController.Instance.InitiateGenesList();
         }
 
         public void OnEntitiesMultipleSelectionButtonClicked()
@@ -192,6 +195,7 @@ namespace UI_Panels
             _entityStatsPanelCoroutine = StartCoroutine(UpdateEntityStatsPanel(entity));
 
             EntitiesWatchlistPanelController.Instance.OnEntitySelected(entity, isSelectedFromUi);
+            GeneticInformationPanelController.Instance.OnEntitySelected();
         }
 
         private IEnumerator UpdateEntityStatsPanel(EntityController entity)
@@ -219,6 +223,7 @@ namespace UI_Panels
             _entityStatsPanelCoroutine = null;
             
             EntitiesWatchlistPanelController.Instance.OnSimulationStopped();
+            GeneticInformationPanelController.Instance.OnSimulationStopped();
         }
 
         private void ToggleSidebarPanel(GameObject panelContainer, bool isPanelOpen)

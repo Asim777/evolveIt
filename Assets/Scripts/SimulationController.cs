@@ -379,7 +379,7 @@ public class SimulationController : MonoBehaviour
         for (var i = 0; i < neuronConnectionLimit; i++)
         {
             var connection = GenerateRandomConnection(sensorNeurons, innerNeurons, sinkNeurons, neuronConnections);
-            neuronConnections[i] = connection;
+            neuronConnections.Add(connection);
         }
 
         return neuronConnections;
@@ -414,7 +414,7 @@ public class SimulationController : MonoBehaviour
         var inputList = sensorNeurons.Concat(innerNeurons).ToList();
         var outputList = sinkNeurons;
         Random random = new();
-        var input = inputList[random.Next(0, inputList.Count)];
+        var input = inputList[random.Next(0, inputList.Count-1)];
         // If the input is a sensor, we can connect to both inner and sink neurons, otherwise, if input is
         // inner, then we connect only to sink neurons
         if (input is SensorNeuron)
@@ -422,7 +422,7 @@ public class SimulationController : MonoBehaviour
             outputList = outputList.Concat(innerNeurons).ToList();
         }
 
-        var output = outputList[random.Next(0, inputList.Count)];
+        var output = outputList[random.Next(0, outputList.Count-1)];
 
         return new NeuronConnection((IInputNeuron)input, (IOutputNeuron)output);
     }
