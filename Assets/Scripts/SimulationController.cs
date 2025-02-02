@@ -235,56 +235,11 @@ public class SimulationController : MonoBehaviour
                 Rnd.Next(-worldSize / 2, worldSize / 2)
             );
 
-            var neuronConnections = GetRandomConnections(sensorNeurons, innerNeurons, sinkNeurons);
-            var genome = new List<Gene>();
-            foreach (var connection in neuronConnections)
-            {
-                // If we have a direct connection between a Sensor and Sink, we create a Gene and if it doesn't
-                // already exist in Genome, we add the Gene to Genome.
-                if (connection.Input is SensorNeuron sensorNeuron && connection.Output is SinkNeuron sinkNeuron)
-                {
-                    var newGene = new Gene(
-                        sensors: new List<Neuron> { sensorNeuron },
-                        inner: null,
-                        sink: sinkNeuron
-                    );
-
-                    if (!genome.Contains(newGene)) genome.Add(newGene);
-                }
-
-                // If it is a connection between Sensor and Inner
-                if (connection.Input is SensorNeuron && connection.Output is InnerNeuron innerNeuron)
-                {
-                    // Find all the connections between this Inner and any Sensors. We want to include all of them in
-                    // one Gene
-                    var allSensors = neuronConnections
-                        .Where(c => c.Input is SensorNeuron && c.Output == innerNeuron)
-                        .Select(c => c.Input as SensorNeuron)
-                        .ToList();
-
-                    // Find all the connections between this Inner and any Sinks. We want to create a separate Gene for
-                    // each of them with the list of Sensors and this Inner Neuron
-                    var allSinks = neuronConnections
-                        .Where(c => c.Input == innerNeuron && c.Output is SinkNeuron)
-                        .Select(c => c.Output as SinkNeuron);
-
-                    foreach (var sink in allSinks)
-                    {
-                        var geneToAdd = new Gene(
-                            sensors: allSensors.OfType<Neuron>().ToList(),
-                            inner: innerNeuron,
-                            sink: sink
-                        );
-                        if (!genome.Contains(geneToAdd)) genome.Add(geneToAdd);
-                    }
-                }
-            }
-            
             // Instantiate the entity and position it
             var entity = Instantiate(entityPrefab, randomPosition, Quaternion.identity);
             entity.name = "Entity_" + i;
             entity.TryGetComponent<EntityController>(out var entityController);
-            entityController.Genome = genome;
+            entityController.Genome = GetRandomGenome(sensorNeurons, innerNeurons, sinkNeurons);
 
             // If Entity GameObject is not null, register it
             if (entity)
@@ -472,6 +427,60 @@ public class SimulationController : MonoBehaviour
         return new NeuronConnection((IInputNeuron)input, (IOutputNeuron)output);
     }
 
+    private List<Gene> GetRandomGenome(
+        List<SensorNeuron> sensorNeurons,
+        List<InnerNeuron> innerNeurons,
+        List<SinkNeuron> sinkNeurons
+    )
+    {
+        var genome = new List<Gene>();
+
+        var neuronConnections = GetRandomConnections(sensorNeurons, innerNeurons, sinkNeurons);
+        foreach (var connection in neuronConnections)
+        {
+            // If we have a direct connection between a Sensor and Sink, we create a Gene and if it doesn't
+            // already exist in Genome, we add the Gene to Genome.
+            if (connection.Input is SensorNeuron sensorNeuron && connection.Output is SinkNeuron sinkNeuron)
+            {
+                var newGene = new Gene(
+                    sensors: new List<Neuron> { sensorNeuron },
+                    inner: null,
+                    sink: sinkNeuron
+                );
+
+                if (!genome.Contains(newGene)) genome.Add(newGene);
+            }
+
+            // If it is a connection between Sensor and Inner
+            if (connection.Input is SensorNeuron && connection.Output is InnerNeuron innerNeuron)
+            {
+                // Find all the connections between this Inner and any Sensors. We want to include all of them in
+                // one Gene
+                var allSensors = neuronConnections
+                    .Where(c => c.Input is SensorNeuron && c.Output == innerNeuron)
+                    .Select(c => c.Input as SensorNeuron)
+                    .ToList();
+
+                // Find all the connections between this Inner and any Sinks. We want to create a separate Gene for
+                // each of them with the list of Sensors and this Inner Neuron
+                var allSinks = neuronConnections
+                    .Where(c => c.Input == innerNeuron && c.Output is SinkNeuron)
+                    .Select(c => c.Output as SinkNeuron);
+
+                foreach (var sink in allSinks)
+                {
+                    var geneToAdd = new Gene(
+                        sensors: allSensors.OfType<Neuron>().ToList(),
+                        inner: innerNeuron,
+                        sink: sink
+                    );
+                    if (!genome.Contains(geneToAdd)) genome.Add(geneToAdd);
+                }
+            }
+        }
+
+        return genome;
+    }
 
     /*private List<Gene> GenerateRandomGenome()
     {

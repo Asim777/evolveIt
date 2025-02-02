@@ -12,7 +12,7 @@ namespace Data.Gene
         IOutputNeuron Output
     )
     {
-        public IInputNeuron Input { get; set; }
-        public IOutputNeuron Output { get; set; }
+        public IInputNeuron Input { get; set; } = Input;
+        public IOutputNeuron Output { get; set; } = Output;
     }
 }
