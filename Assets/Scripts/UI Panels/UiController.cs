@@ -124,8 +124,10 @@ namespace UI_Panels
         {
             var gipContainer = GameObject.Find("GIP_container");
             ToggleSidebarPanel(gipContainer, _isGipPanelOpen);
-            _isGipPanelOpen = !_isGipPanelOpen;
-            if (_isGipPanelOpen) GeneticInformationPanelController.Instance.InitiateGenesList();
+            if (!_isGipPanelOpen && SimulationController.Instance.GetSelectedEntity() != null)
+            {
+                _isGipPanelOpen = !_isGipPanelOpen;
+            }
         }
 
         public void OnEntitiesMultipleSelectionButtonClicked()

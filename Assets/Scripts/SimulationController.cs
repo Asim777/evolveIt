@@ -181,8 +181,9 @@ public class SimulationController : MonoBehaviour
     private IEnumerator InitializeSimulation()
     {
         // Using Coroutine to spread out the spawning over multiple frames
-        SpawnInitialFood();
-        SpawnInitialEntities();
+        var world = GameObject.Find("World").transform;
+        SpawnInitialFood(world);
+        SpawnInitialEntities(world);
 
         yield return true;
     }
@@ -212,7 +213,7 @@ public class SimulationController : MonoBehaviour
         }
     }
 
-    private void SpawnInitialEntities()
+    private void SpawnInitialEntities(Transform world)
     {
         var entityPrefab = Resources.Load<GameObject>("EntityPrefab");
         var neurons = NeuronExtensions.GetNeurons(activationGroup);
@@ -236,7 +237,7 @@ public class SimulationController : MonoBehaviour
             );
 
             // Instantiate the entity and position it
-            var entity = Instantiate(entityPrefab, randomPosition, Quaternion.identity);
+            var entity = Instantiate(entityPrefab, randomPosition, Quaternion.identity, world);
             entity.name = "Entity_" + i;
             entity.TryGetComponent<EntityController>(out var entityController);
             entityController.Genome = GetRandomGenome(sensorNeurons, innerNeurons, sinkNeurons);
@@ -260,16 +261,17 @@ public class SimulationController : MonoBehaviour
 
     public void SpawnEntity(Vector2 position)
     {
+        var world = GameObject.Find("World").transform;
         // Instantiate the entity and position it
         _entityCounter++;
         var entityPrefab = Resources.Load<GameObject>("EntityPrefab");
-        var entity = Instantiate(entityPrefab, position, Quaternion.identity);
+        var entity = Instantiate(entityPrefab, position, Quaternion.identity, world);
         entity.name = "Entity_" + _entityCounter;
         Entities.Add(entity);
         Debug.Log("New entity is born " + entity.name);
     }
 
-    private void SpawnInitialFood()
+    private void SpawnInitialFood(Transform world)
     {
         // Load the prefab from Resources
         var foodPrefab = Resources.Load<GameObject>("FoodPrefab");
@@ -282,12 +284,13 @@ public class SimulationController : MonoBehaviour
 
         for (var i = 0; i < initialNumberOfFood; i++)
         {
-            SpawnFood(foodPrefab);
+            SpawnFood(foodPrefab, world);
         }
     }
 
     private IEnumerator SpawnRegularFood()
     {
+        var world = GameObject.Find("World").transform;
         while (simulationState == SimulationState.Running)
         {
             // If numberOfFoodPerStep is lower than 1, we want to skip some steps before spawning food. 
@@ -296,14 +299,14 @@ public class SimulationController : MonoBehaviour
             var numberOfFood = numberOfFoodPerStep < 1 ? 1 : numberOfFoodPerStep;
             for (var i = 0; i < numberOfFood; i++)
             {
-                SpawnFood(foodPrefab);
+                SpawnFood(foodPrefab, world);
             }
 
             yield return new WaitForSeconds(GetSimulationStepInterval() * foodProductionIntervalCoefficient);
         }
     }
 
-    private void SpawnFood(GameObject foodPrefab)
+    private void SpawnFood(GameObject foodPrefab, Transform world)
     {
         // Generate a random position within the world boundaries
         var randomPosition = new Vector2(
@@ -312,7 +315,7 @@ public class SimulationController : MonoBehaviour
         );
 
         // Instantiate the food and position it
-        var food = Instantiate(foodPrefab, randomPosition, Quaternion.identity);
+        var food = Instantiate(foodPrefab, randomPosition, Quaternion.identity, world);
 
         // If Entity GameObject is not null, register it
         if (food)

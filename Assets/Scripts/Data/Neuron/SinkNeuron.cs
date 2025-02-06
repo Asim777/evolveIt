@@ -8,7 +8,7 @@ namespace Data.Neuron
 
         public class Move : SinkNeuron
         {
-            public Move() : base("M", SinkCategory.Movement)
+            public Move() : base("Mv", SinkCategory.Movement)
             {
             }
         }
@@ -29,7 +29,7 @@ namespace Data.Neuron
 
         public class Mate : SinkNeuron
         {
-            public Mate() : base("M", SinkCategory.Mate)
+            public Mate() : base("Mt", SinkCategory.Mate)
             {
             }
         }

@@ -1,3 +1,6 @@
+using System;
+using System.Collections.Generic;
+using System.Linq;
 using Data.Gene;
 using Data.Neuron;
 using TMPro;
@@ -9,7 +12,7 @@ namespace UI_Panels
     public class GeneticInformationPanelController : MonoBehaviour, IGeneticInformationPanelController
     {
         public static GeneticInformationPanelController Instance { get; private set; }
-        
+
         private Transform _genesScrollViewContent;
         private Transform _neuronsScrollViewContent;
         private Transform _currentlySelectedGeneListItem;
@@ -48,13 +51,15 @@ namespace UI_Panels
 
         public void OnEntitySelected()
         {
-            InitiateGenesList();
+            UpdateGeneList();
+            UpdateNeuralMap(SimulationController.Instance.GetSelectedEntity()?.GetComponent<EntityController>()
+                ?.Genome);
         }
-        
-        public void InitiateGenesList()
+
+        public void UpdateGeneList()
         {
             ClearScrollView(_genesScrollViewContent);
-            
+
             var selectedEntityController =
                 SimulationController.Instance.GetSelectedEntity()?.GetComponent<EntityController>();
             if (selectedEntityController == null) return;
@@ -69,7 +74,7 @@ namespace UI_Panels
                 AddGeneListItemClickListener(button, listItem.transform, gene);
             }
         }
-        
+
         public void OnSimulationStopped()
         {
             ClearScrollView(_genesScrollViewContent);
@@ -90,7 +95,62 @@ namespace UI_Panels
             _selectedNeuron = null;
             _currentlySelectedNeuronListItem = null;
         }
-        
+
+        private void UpdateNeuralMap(List<Gene> genome)
+        {
+            if (genome != null)
+            {
+                var neurons = genome.SelectMany(gene => gene.GetAllNeurons()).Distinct().ToList();
+                var neuralMapContainer = GameObject.Find("GIP_NeuronsContainer");
+
+                // Clear all previous Neurons
+                foreach (Transform child in neuralMapContainer.transform)
+                {
+                    Destroy(child.gameObject);
+                }
+
+                var sensorNeurons = neurons.OfType<SensorNeuron>().ToList();
+                var innerNeurons = neurons.OfType<InnerNeuron>().ToList();
+                var sinkNeurons = neurons.OfType<SinkNeuron>().ToList();
+                var neuronPrefab = Resources.Load<GameObject>("NeuronPrefab");
+
+                CreateNeuronCircle(neuronPrefab, neuralMapContainer.transform, sensorNeurons.OfType<Neuron>().ToList(),
+                    160);
+                CreateNeuronCircle(neuronPrefab, neuralMapContainer.transform, innerNeurons.OfType<Neuron>().ToList(),
+                    85);
+                CreateNeuronCircle(neuronPrefab, neuralMapContainer.transform, sinkNeurons.OfType<Neuron>().ToList(),
+                    30);
+            }
+        }
+
+        private static void CreateNeuronCircle(GameObject neuronPrefab, Transform neuralMapContainer, List<Neuron> neurons,
+            int radius)
+        {
+            // We arrange all Neurons around the center of NeuralMap Container
+            var point = neuralMapContainer.transform.position;
+            var center = new Vector2(point.x, point.y);
+
+            for (var i = 0; i < neurons.Count; i++)
+            {
+                // Distance around the circle
+                var radian = 2 * MathF.PI / neurons.Count * i;
+
+                // Get the vector direction
+                var vertical = MathF.Sin(radian);
+                var horizontal = MathF.Cos(radian);
+
+                var spawnDir = new Vector2(horizontal, vertical);
+
+                // Get the spawn position
+                var spawnPos = center + spawnDir * radius; // Radius is just the distance away from the point
+
+                // Spawning Neuron object
+                Instantiate(neuronPrefab, spawnPos, Quaternion.identity, neuralMapContainer);
+                var neuronId = neuronPrefab.transform.Find("Neuron_Id").GetComponent<TextMeshProUGUI>();
+                neuronId.text = neurons[i].Id;
+            }
+        }
+
         private void AddGeneListItemClickListener(Transform button, Transform listItem, Gene gene)
         {
             var listItemButton = button.GetComponent<Button>();
@@ -102,7 +162,7 @@ namespace UI_Panels
             if (_currentlySelectedGeneListItem != null)
             {
                 ChangeListItemUi(_currentlySelectedGeneListItem, false);
-            }   
+            }
 
             ChangeListItemUi(listItem, true);
             _currentlySelectedGeneListItem = listItem;
@@ -114,7 +174,7 @@ namespace UI_Panels
         private void InitiateNeuronsList()
         {
             ClearScrollView(_neuronsScrollViewContent);
-            
+
             var selectedEntityController =
                 SimulationController.Instance.GetSelectedEntity()?.GetComponent<EntityController>();
             if (selectedEntityController == null) return;
@@ -147,7 +207,7 @@ namespace UI_Panels
             _currentlySelectedNeuronListItem = listItem;
             _selectedNeuron = neuron;
         }
-        
+
         private void ChangeListItemUi(Transform listItem, bool isSelected)
         {
             // Sometimes list item is deleted by the time we arrive here. We want to prevent NullReferenceException
@@ -163,7 +223,7 @@ namespace UI_Panels
             text.color = textColor;
             text.fontStyle = isSelected ? FontStyles.Bold : FontStyles.Normal;
         }
-        
+
         private void ClearScrollView(Transform scrollView)
         {
             foreach (Transform child in scrollView)
