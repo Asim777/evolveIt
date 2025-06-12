@@ -17,13 +17,14 @@ namespace UI_Panels
         //private Image playPauseButtonBackground;
         private Image _playPauseButtonIcon;
         public GameObject entityStatsPanel;
-
+        
+        private UiListType _activeList = UiListType.None;
         private bool _isEwpPanelOpen;
         private bool _isGipPanelOpen;
        
         private Coroutine _entityStatsPanelCoroutine;
 
-        void Awake()
+        private void Awake()
         {
             if (Instance == null)
             {
@@ -35,13 +36,27 @@ namespace UI_Panels
             }
         }
 
-        void Start()
+        private void Start()
         {
             _playPauseButtonIcon = playPauseButton.transform.GetChild(0).GetComponent<Image>();
             _playPauseButtonIcon.sprite = playIcon;
 
             entityStatsPanel = GameObject.Find("ESP");
             entityStatsPanel.SetActive(false);
+        }
+
+        private void Update()
+        {
+            if (Input.GetKeyDown(KeyCode.DownArrow))
+            {
+                // Select the next item
+                SelectNextListItem();
+            }
+            else if (Input.GetKeyDown(KeyCode.UpArrow))
+            {
+                // Select the previous item
+                SelectPreviousListItem();
+            }
         }
 
         public void OnResumePauseButtonClicked()
@@ -132,7 +147,7 @@ namespace UI_Panels
 
         public void OnEntitiesMultipleSelectionButtonClicked()
         {
-            EntitiesWatchlistPanelController.Instance.OnListMultipleSelectionButtonClicked(EntityListType.EntityList);
+            EntitiesWatchlistPanelController.Instance.OnListMultipleSelectionButtonClicked(UiListType.EntityList);
         }
 
         public void OnEwpAddToWathclistButtonClicked()
@@ -142,7 +157,7 @@ namespace UI_Panels
 
         public void OnWatchlistMultipleSelectionButtonClicked()
         {
-            EntitiesWatchlistPanelController.Instance.OnListMultipleSelectionButtonClicked(EntityListType.Watchlist);
+            EntitiesWatchlistPanelController.Instance.OnListMultipleSelectionButtonClicked(UiListType.Watchlist);
         }
 
         public void OnDeleteFromWatchlistButtonClicked()
@@ -198,6 +213,11 @@ namespace UI_Panels
 
             EntitiesWatchlistPanelController.Instance.OnEntitySelected(entity, isSelectedFromUi);
             GeneticInformationPanelController.Instance.OnEntitySelected();
+        }
+
+        public void SetActiveList(UiListType list)
+        {
+            _activeList = list;
         }
 
         private IEnumerator UpdateEntityStatsPanel(EntityController entity)
@@ -267,5 +287,37 @@ namespace UI_Panels
 
             panel.anchoredPosition = end;
         }
+        
+        private void SelectNextListItem()
+        {
+            switch (_activeList)
+            {
+                case UiListType.EntityList when SimulationController.Instance.GetSelectedEntity() != null:
+                    EntitiesWatchlistPanelController.Instance.SelectNextListItem(UiListType.EntityList);
+                    break;
+                case UiListType.Watchlist when SimulationController.Instance.GetSelectedEntity() != null:
+                    EntitiesWatchlistPanelController.Instance.SelectNextListItem(UiListType.Watchlist);
+                    break;
+                case UiListType.GeneList when GeneticInformationPanelController.Instance.SelectedGene != null:
+                    GeneticInformationPanelController.Instance.SelectNextListItem(UiListType.GeneList);
+                    break;
+                case UiListType.NeuronList when GeneticInformationPanelController.Instance.SelectedNeuron != null:
+                    GeneticInformationPanelController.Instance.SelectNextListItem(UiListType.NeuronList);
+                    break;
+                case UiListType.None:
+                    break;
+                default:
+                    throw new ArgumentOutOfRangeException();
+            }
+        }
+    }
+
+    public enum UiListType
+    {
+        EntityList,
+        Watchlist,
+        GeneList,
+        NeuronList,
+        None
     }
 }

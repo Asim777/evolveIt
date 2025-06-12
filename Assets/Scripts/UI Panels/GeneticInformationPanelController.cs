@@ -12,22 +12,16 @@ namespace UI_Panels
     public class GeneticInformationPanelController : MonoBehaviour, IGeneticInformationPanelController
     {
         public static GeneticInformationPanelController Instance { get; private set; }
+        public Gene SelectedGene;
+        public Neuron SelectedNeuron;
 
         private Transform _genesScrollViewContent;
         private Transform _neuronsScrollViewContent;
-        private Transform _currentlySelectedGeneListItem;
-        private Transform _currentlySelectedNeuronListItem;
+        private SelectedListItem _currentlySelectedGeneListItem;
+        private SelectedListItem _currentlySelectedNeuronListItem;
         private Transform _geneSelectionResetButton;
         private Transform _neuronSelectionResetButton;
-        private GameObject _entityListItemPrefab;
-
-        private readonly Color32 _lightListItemColor = new(255, 255, 255, 171);
-        private readonly Color32 _darkListItemColor = new(0, 0, 0, 171);
-        private readonly Color32 _lightListItemTextColor = new(255, 255, 255, 255);
-        private readonly Color32 _darkListItemTextColor = new(0, 0, 0, 255);
-
-        private Gene _selectedGene;
-        private Neuron _selectedNeuron;
+        private GameObject _listItemPrefab;
 
         private void Awake()
         {
@@ -46,7 +40,7 @@ namespace UI_Panels
             _genesScrollViewContent = GameObject.Find("GIP_GenesScrollView/Viewport/Content").transform;
             _neuronsScrollViewContent = GameObject.Find("GIP_NeuronsScrollView/Viewport/Content").transform;
 
-            _entityListItemPrefab = Resources.Load<GameObject>("ListItemPrefab");
+            _listItemPrefab = Resources.Load<GameObject>("ListItemPrefab");
         }
 
         public void OnEntitySelected()
@@ -66,12 +60,12 @@ namespace UI_Panels
 
             foreach (var gene in selectedEntityController.Genome)
             {
-                var listItem = Instantiate(_entityListItemPrefab, _genesScrollViewContent);
-                listItem.name = gene.Name;
+                var listItem = Instantiate(_listItemPrefab, _genesScrollViewContent);
+                listItem.GetComponent<UiListItemController<Gene>>().Init(UiListType.GeneList, gene.Name);
+
                 var button = listItem.transform.Find("ListItem_Button");
 
                 button.Find("ListItem_Text").GetComponent<TextMeshProUGUI>().text = gene.Name;
-                AddGeneListItemClickListener(button, listItem.transform, gene);
             }
         }
 
@@ -83,17 +77,51 @@ namespace UI_Panels
 
         public void OnGenesResetButtonClick()
         {
-            ChangeListItemUi(_currentlySelectedGeneListItem, false);
-            _selectedGene = null;
+            _currentlySelectedGeneListItem.ListItem.GetComponent<UiListItemController<Gene>>().IsSelected = false;
+            SelectedGene = null;
             _currentlySelectedGeneListItem = null;
             ClearScrollView(_neuronsScrollViewContent);
         }
 
         public void OnNeuronsResetButtonClick()
         {
-            ChangeListItemUi(_currentlySelectedNeuronListItem, false);
-            _selectedNeuron = null;
+            _currentlySelectedNeuronListItem.ListItem.GetComponent<UiListItemController<Neuron>>().IsSelected = false;
+            SelectedNeuron = null;
             _currentlySelectedNeuronListItem = null;
+        }
+
+        public void SelectNextListItem(UiListType listType)
+        {
+            Transform[] listItems;
+            Transform nextItem = null;
+
+            switch (listType)
+            {
+                case UiListType.GeneList:
+                    if (_currentlySelectedGeneListItem != null)
+                    {
+                        listItems = _genesScrollViewContent.transform.GetComponentsInChildren<Transform>(false);
+                        nextItem = listItems[_currentlySelectedGeneListItem.Index + 1];
+                    }
+
+                    break;
+                case UiListType.NeuronList:
+                    if (_currentlySelectedNeuronListItem != null)
+                    {
+                        listItems = _neuronsScrollViewContent.transform.GetComponentsInChildren<Transform>(false);
+                        nextItem = listItems[_currentlySelectedNeuronListItem.Index + 1];
+                    }
+
+                    break;
+                default: throw new ArgumentOutOfRangeException(nameof(listType), listType, null);
+            }
+
+            if (nextItem == null) return;
+            var genome = SimulationController.Instance.GetSelectedEntity()?.GetComponent<EntityController>()?.Genome;
+            if (genome == null) return;
+            var nextEntity = selectedEntity.GetComponent<EntityController>()
+                .First(entity => entity.name == nextItem.name);
+            if (nextEntity != null) SimulationController.Instance.RegisterSelectedEntity(nextEntity);
         }
 
         private void UpdateNeuralMap(List<Gene> genome)
@@ -123,8 +151,8 @@ namespace UI_Panels
             }
         }
 
-        private static void CreateNeuronCircle(GameObject neuronPrefab, Transform neuralMapContainer, List<Neuron> neurons,
-            int radius)
+        private static void CreateNeuronCircle(
+            GameObject neuronPrefab, Transform neuralMapContainer, List<Neuron> neurons, int radius)
         {
             // We arrange all Neurons around the center of NeuralMap Container
             var point = neuralMapContainer.transform.position;
@@ -133,7 +161,7 @@ namespace UI_Panels
             for (var i = 0; i < neurons.Count; i++)
             {
                 // Distance around the circle
-                var radian = 2 * MathF.PI / neurons.Count * i;
+                var radian = 2 * MathF.PI / neurons.Count * (i + 1);
 
                 // Get the vector direction
                 var vertical = MathF.Sin(radian);
@@ -141,24 +169,22 @@ namespace UI_Panels
 
                 var spawnDir = new Vector2(horizontal, vertical);
 
-                // Get the spawn position
-                var spawnPos = center + spawnDir * radius; // Radius is just the distance away from the point
+                // Get the spawn position. Radius is just the distance away from the point
+                var spawnPos = center + spawnDir * radius;
 
                 // Spawning Neuron object
-                Instantiate(neuronPrefab, spawnPos, Quaternion.identity, neuralMapContainer);
-                var neuronId = neuronPrefab.transform.Find("Neuron_Id").GetComponent<TextMeshProUGUI>();
+                GameObject neuronObject = Instantiate(neuronPrefab, spawnPos, Quaternion.identity, neuralMapContainer);
+                var neuronId = neuronObject.transform.Find("Neuron_Id").GetComponent<TextMeshProUGUI>();
                 neuronId.text = neurons[i].Id;
+                Debug.Log("Created new " + neurons[i].Category + ", Neuron name: " + neurons[i].Id + " radius: " +
+                          radius);
             }
-        }
-
-        private void AddGeneListItemClickListener(Transform button, Transform listItem, Gene gene)
-        {
-            var listItemButton = button.GetComponent<Button>();
-            listItemButton.onClick.AddListener(() => OnGeneClicked(gene, listItem));
         }
 
         private void OnGeneClicked(Gene gene, Transform listItem)
         {
+            if (_currentlySelectedGeneListItem.ListItem == listItem) return;
+
             if (_currentlySelectedGeneListItem != null)
             {
                 ChangeListItemUi(_currentlySelectedGeneListItem, false);
@@ -166,8 +192,10 @@ namespace UI_Panels
 
             ChangeListItemUi(listItem, true);
             _currentlySelectedGeneListItem = listItem;
-            _selectedGene = gene;
+            SelectedGene = gene;
+            UiController.Instance.SetActiveList(UiListType.GeneList);
 
+            OnListItemClicked(listItem, GeneticListType.GeneList, gene);
             InitiateNeuronsList();
         }
 
@@ -179,25 +207,20 @@ namespace UI_Panels
                 SimulationController.Instance.GetSelectedEntity()?.GetComponent<EntityController>();
             if (selectedEntityController == null) return;
 
-            foreach (var neuron in _selectedGene.GetAllNeurons())
+            foreach (var neuron in SelectedGene.GetAllNeurons())
             {
-                var listItem = Instantiate(_entityListItemPrefab, _neuronsScrollViewContent);
-                listItem.name = neuron.Id;
+                var listItem = Instantiate(_listItemPrefab, _neuronsScrollViewContent);
+                listItem.GetComponent<UiListItemController<Neuron>>().Init(UiListType.NeuronList, neuron.Id);
                 var button = listItem.transform.Find("ListItem_Button");
 
                 button.Find("ListItem_Text").GetComponent<TextMeshProUGUI>().text = neuron.Id;
-                AddNeuronListItemClickListener(button, listItem.transform, neuron);
             }
-        }
-
-        private void AddNeuronListItemClickListener(Transform button, Transform listItem, Neuron neuron)
-        {
-            var listItemButton = button.GetComponent<Button>();
-            listItemButton.onClick.AddListener(() => OnNeuronClicked(neuron, listItem));
         }
 
         private void OnNeuronClicked(Neuron neuron, Transform listItem)
         {
+            if (_currentlySelectedNeuronListItem == listItem) return;
+
             if (_currentlySelectedNeuronListItem != null)
             {
                 ChangeListItemUi(_currentlySelectedNeuronListItem, false);
@@ -205,23 +228,43 @@ namespace UI_Panels
 
             ChangeListItemUi(listItem, true);
             _currentlySelectedNeuronListItem = listItem;
-            _selectedNeuron = neuron;
+            SelectedNeuron = neuron;
+            UiController.Instance.SetActiveList(UiListType.NeuronList);
         }
 
-        private void ChangeListItemUi(Transform listItem, bool isSelected)
+        private void OnListItemClicked(Transform listItem, UiListType listType, object selectedObject)
         {
-            // Sometimes list item is deleted by the time we arrive here. We want to prevent NullReferenceException
-            if (listItem == null) return;
+            var currentlySelectedItem = listType switch
+            {
+                UiListType.GeneList => _currentlySelectedGeneListItem,
+                UiListType.NeuronList => _currentlySelectedNeuronListItem,
+                _ => throw new ArgumentOutOfRangeException(nameof(listType), listType, null)
+            };
 
-            var backgroundColor = isSelected ? _lightListItemColor : _darkListItemColor;
-            var textColor = isSelected ? _darkListItemTextColor : _lightListItemTextColor;
+            if (currentlySelectedItem.ListItem == listItem) return;
 
-            var button = listItem.transform.Find("ListItem_Button");
-            var image = button.GetComponent<Image>();
-            var text = button.Find("ListItem_Text").GetComponent<TextMeshProUGUI>();
-            image.color = backgroundColor;
-            text.color = textColor;
-            text.fontStyle = isSelected ? FontStyles.Bold : FontStyles.Normal;
+            if (currentlySelectedItem != null)
+            {
+                ChangeListItemUi(currentlySelectedItem, false);
+            }
+
+            ChangeListItemUi(listItem, true);
+            switch (listType)
+            {
+                case GeneticListType.GeneList when selectedObject is Gene gene:
+                    _currentlySelectedGeneListItem = listItem;
+                    SelectedGene = gene;
+                    break;
+                case GeneticListType.NeuronList when selectedObject is Neuron neuron:
+                    _currentlySelectedNeuronListItem = listItem;
+                    SelectedNeuron = neuron;
+                    break;
+                default:
+                    throw new ArgumentOutOfRangeException(nameof(listType), listType, null);
+            }
+
+
+            UiController.Instance.SetActiveList(UiListType.GeneList);
         }
 
         private void ClearScrollView(Transform scrollView)

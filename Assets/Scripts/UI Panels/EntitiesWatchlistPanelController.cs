@@ -1,5 +1,7 @@
+using System;
 using System.Collections.Generic;
 using System.Collections.Specialized;
+using System.Linq;
 using TMPro;
 using UnityEngine;
 using UnityEngine.UI;
@@ -18,21 +20,16 @@ namespace UI_Panels
 
         private Transform _entitiesScrollViewContent;
         private Transform _watchlistScrollViewContent;
-        private Transform _currentlySelectedEntityListItem;
-        private Transform _currentlySelectedWatchlistListItem;
+        private SelectedListItem _currentlySelectedEntityListItem;
+        private SelectedListItem _currentlySelectedWatchlistListItem;
         private Transform _entityListAddToWatchlistButton;
         private Transform _watchlistDeleteButton;
 
-        private GameObject _entityListItemPrefab;
+        private GameObject _listItemPrefab;
 
         // First value in dictionary is list item, second value is entity object
         private readonly Dictionary<GameObject, GameObject> _selectedEntityListItems = new();
         private readonly Dictionary<GameObject, GameObject> _selectedWatchlistItems = new();
-
-        private readonly Color32 _lightListItemColor = new(255, 255, 255, 171);
-        private readonly Color32 _darkListItemColor = new(0, 0, 0, 171);
-        private readonly Color32 _lightListItemTextColor = new(255, 255, 255, 255);
-        private readonly Color32 _darkListItemTextColor = new(0, 0, 0, 255);
 
         void Awake()
         {
@@ -58,43 +55,45 @@ namespace UI_Panels
             _watchlistDeleteButton = GameObject.Find("EWP_WatchlistDeleteButton").transform;
             _watchlistDeleteButton.gameObject.SetActive(false);
 
-            _entityListItemPrefab = Resources.Load<GameObject>("ListItemPrefab");
+            _listItemPrefab = Resources.Load<GameObject>("ListItemPrefab");
 
             SimulationController.Instance.Entities.CollectionChanged +=
-                (_, e) => UpdateEntitiesList(e, EntityListType.EntityList);
+                (_, e) => UpdateEntitiesList(e, UiListType.EntityList);
             SimulationController.Instance.Watchlist.CollectionChanged +=
-                (_, e) => UpdateEntitiesList(e, EntityListType.Watchlist);
+                (_, e) => UpdateEntitiesList(e, UiListType.Watchlist);
         }
 
         public void InitiateEntitiesList()
         {
             var entities = SimulationController.Instance.Entities;
-            Debug.Log("UpdateEntitiesWatchlistPanel called. Number of entities: " + entities.Count);
 
             // Populate the list with new items
             foreach (var entity in entities)
             {
-                AddEntityToList(entity, _entitiesScrollViewContent, EntityListType.EntityList);
+                AddEntityToList(entity, _entitiesScrollViewContent, UiListType.EntityList);
             }
         }
 
-        public void OnListMultipleSelectionButtonClicked(EntityListType listType)
+        public void OnListMultipleSelectionButtonClicked(UiListType listType)
         {
             Transform scrollView;
             bool isMultipleSelectActive;
             List<Transform> actionButtons;
-            
-            if (listType == EntityListType.EntityList)
+
+            switch (listType)
             {
-                scrollView = _entitiesScrollViewContent;
-                isMultipleSelectActive = _entityListMultipleSelectionActive;
-                actionButtons = new List<Transform> { _entityListAddToWatchlistButton };
-            }
-            else
-            {
-                scrollView = _watchlistScrollViewContent;
-                isMultipleSelectActive = _watchlistListMultipleSelectionActive;
-                actionButtons = new List<Transform> { _watchlistDeleteButton };
+                case UiListType.EntityList:
+                    scrollView = _entitiesScrollViewContent;
+                    isMultipleSelectActive = _entityListMultipleSelectionActive;
+                    actionButtons = new List<Transform> { _entityListAddToWatchlistButton };
+                    break;
+                case UiListType.Watchlist:
+                    scrollView = _watchlistScrollViewContent;
+                    isMultipleSelectActive = _watchlistListMultipleSelectionActive;
+                    actionButtons = new List<Transform> { _watchlistDeleteButton };
+                    break;
+                default:
+                    throw new ArgumentOutOfRangeException(nameof(listType), listType, null);
             }
 
             // Show multiple selection toggles
@@ -116,13 +115,16 @@ namespace UI_Panels
             // Clear the list of selected items when going out of Multi-select mode
             if (isMultipleSelectActive)
             {
-                if (listType == EntityListType.EntityList)
+                switch (listType)
                 {
-                    _selectedEntityListItems.Clear();
-                }
-                else
-                {
-                    _selectedWatchlistItems.Clear();
+                    case UiListType.EntityList:
+                        _selectedEntityListItems.Clear();
+                        break;
+                    case UiListType.Watchlist:
+                        _selectedWatchlistItems.Clear();
+                        break;
+                    default:
+                        throw new ArgumentOutOfRangeException(nameof(listType), listType, null);
                 }
             }
 
@@ -132,19 +134,22 @@ namespace UI_Panels
             {
                 SimulationController.Instance.DeselectSelectedEntity();
             }
-            
+
             foreach (var actionButton in actionButtons)
             {
                 actionButton.gameObject.SetActive(!isMultipleSelectActive);
             }
 
-            if (listType == EntityListType.EntityList)
+            switch (listType)
             {
-                _entityListMultipleSelectionActive = !isMultipleSelectActive;
-            }
-            else
-            {
-                _watchlistListMultipleSelectionActive = !isMultipleSelectActive;
+                case UiListType.EntityList:
+                    _entityListMultipleSelectionActive = !isMultipleSelectActive;
+                    break;
+                case UiListType.Watchlist:
+                    _watchlistListMultipleSelectionActive = !isMultipleSelectActive;
+                    break;
+                default:
+                    throw new ArgumentOutOfRangeException(nameof(listType), listType, null);
             }
         }
 
@@ -159,35 +164,35 @@ namespace UI_Panels
             }
 
             _selectedEntityListItems.Clear();
-            OnListMultipleSelectionButtonClicked(EntityListType.EntityList);
+            OnListMultipleSelectionButtonClicked(UiListType.EntityList);
         }
 
         public void OnEspAddToWatchlistButtonClicked(GameObject selectedEntity)
         {
             // Select entity added to the Watchlist
-            SelectListItem(selectedEntity.GetComponent<EntityController>(), EntityListType.Watchlist, true);
+            SelectListItem(selectedEntity.GetComponent<EntityController>(), UiListType.Watchlist, true);
         }
 
         public void OnDeleteFromWatchlistButtonClicked()
         {
             SimulationController.Instance.Watchlist.RemoveRange(_selectedWatchlistItems.Values);
             _selectedWatchlistItems.Clear();
-            OnListMultipleSelectionButtonClicked(EntityListType.Watchlist);
+            OnListMultipleSelectionButtonClicked(UiListType.Watchlist);
         }
 
         public void OnEntityDeselected()
         {
-            UnselectCurrentlySelectedListItem(EntityListType.EntityList);
-            UnselectCurrentlySelectedListItem(EntityListType.Watchlist);
+            UnselectCurrentlySelectedListItem(UiListType.EntityList);
+            UnselectCurrentlySelectedListItem(UiListType.Watchlist);
         }
 
         public void OnEntitySelected(EntityController entity, bool isSelectedFromUi)
         {
             // Select the entity in the entities list
-            SelectListItem(entity, EntityListType.EntityList, !isSelectedFromUi);
+            SelectListItem(entity, UiListType.EntityList, !isSelectedFromUi);
 
             // Select the entity in the watchlist list
-            SelectListItem(entity, EntityListType.Watchlist, !isSelectedFromUi);
+            SelectListItem(entity, UiListType.Watchlist, !isSelectedFromUi);
         }
 
         public void OnSimulationStopped()
@@ -203,60 +208,88 @@ namespace UI_Panels
             }
         }
 
-        private void OnEntityListToggleClicked(Toggle toggle, GameObject entity, Transform listItem, EntityListType listType)
+        public void SelectNextListItem(UiListType listType)
+        {
+            Transform[] listItems;
+            Transform nextItem = null;
+
+            switch (listType)
+            {
+                case UiListType.EntityList:
+                    if (_currentlySelectedEntityListItem != null)
+                    {
+                        listItems = _entitiesScrollViewContent.transform.GetComponentsInChildren<Transform>(false);
+                        nextItem = listItems[_currentlySelectedEntityListItem.Index + 1];
+                    }
+
+                    break;
+                case UiListType.Watchlist:
+                    if (_currentlySelectedWatchlistListItem != null)
+                    {
+                        listItems = _watchlistScrollViewContent.transform.GetComponentsInChildren<Transform>(false);
+                        nextItem = listItems[_currentlySelectedWatchlistListItem.Index + 1];
+                    }
+
+                    break;
+                default: throw new ArgumentOutOfRangeException(nameof(listType), listType, null);
+            }
+
+            if (nextItem == null) return;
+            var nextEntity = SimulationController.Instance.Entities.First(entity => entity.name == nextItem.name);
+            if (nextEntity != null) SimulationController.Instance.RegisterSelectedEntity(nextEntity);
+        }
+
+        private void OnEntityListToggleClicked(Toggle toggle, GameObject entity, Transform listItem,
+            UiListType listType)
         {
             if (!toggle.isOn)
             {
-                if (listType == EntityListType.EntityList)
+                switch (listType)
                 {
-                    _selectedEntityListItems.Add(listItem.gameObject, entity);
-                }
-                else
-                {
-                    _selectedWatchlistItems.Add(listItem.gameObject, entity);
+                    case UiListType.EntityList:
+                        _selectedEntityListItems.Add(listItem.gameObject, entity);
+                        break;
+                    case UiListType.Watchlist:
+                        _selectedWatchlistItems.Add(listItem.gameObject, entity);
+                        break;
+                    case UiListType.GeneList:
+                    case UiListType.NeuronList:
+                    case UiListType.None:
+                        break;
+                    default: throw new ArgumentOutOfRangeException(nameof(listType), listType, null);
                 }
 
                 toggle.isOn = true;
             }
             else
             {
-                if (listType == EntityListType.EntityList)
+                switch (listType)
                 {
-                    _selectedEntityListItems.Remove(listItem.gameObject);
-                }
-                else
-                {
-                    _selectedWatchlistItems.Remove(listItem.gameObject);
+                    case UiListType.EntityList:
+                        _selectedEntityListItems.Remove(listItem.gameObject);
+                        break;
+                    case UiListType.Watchlist:
+                        _selectedWatchlistItems.Remove(listItem.gameObject);
+                        break;
+                    case UiListType.GeneList:
+                    case UiListType.NeuronList:
+                    case UiListType.None:
+                        break;
+                    default: throw new ArgumentOutOfRangeException(nameof(listType), listType, null);
                 }
 
                 toggle.isOn = false;
             }
         }
 
-        private void OnListItemClicked(GameObject entity, Transform listItem, EntityListType listType)
+        private void UpdateEntitiesList(NotifyCollectionChangedEventArgs e, UiListType listType)
         {
-            // Handle the click event
-            var multipleSelectionState = listType == EntityListType.EntityList
-                ? _entityListMultipleSelectionActive
-                : _watchlistListMultipleSelectionActive;
-
-            if (multipleSelectionState)
+            var scrollViewContent = listType switch
             {
-                var toggle = listItem.Find("ListItem_Button").transform.Find("ListItem_Toggle").GetComponent<Toggle>();
-                OnEntityListToggleClicked(toggle, entity, listItem, listType);
-            }
-            else
-            {
-                Debug.Log("Clicked on entity: " + entity.gameObject.name);
-                entity.GetComponent<EntityController>().SelectEntity(true);
-            }
-        }
-
-        private void UpdateEntitiesList(NotifyCollectionChangedEventArgs e, EntityListType listType)
-        {
-            var scrollViewContent = listType == EntityListType.EntityList
-                ? _entitiesScrollViewContent
-                : _watchlistScrollViewContent;
+                UiListType.EntityList => _entitiesScrollViewContent,
+                UiListType.Watchlist => _watchlistScrollViewContent,
+                _ => throw new ArgumentOutOfRangeException(nameof(listType), listType, null)
+            };
 
             if (e.NewItems != null)
             {
@@ -276,22 +309,14 @@ namespace UI_Panels
             }
         }
 
-        private void AddEntityToList(GameObject entity, Transform scrollViewContent, EntityListType listType)
+        private void AddEntityToList(GameObject entity, Transform scrollViewContent, UiListType listType)
         {
-            var listItem = Instantiate(_entityListItemPrefab, scrollViewContent);
-            listItem.name = entity.gameObject.name;
+            var listItem = Instantiate(_listItemPrefab, scrollViewContent);
+            _listItemPrefab.GetComponent<UiListItemController<GameObject>>().Init(listType, entity.gameObject.name);
+
             var button = listItem.transform.Find("ListItem_Button");
 
             button.Find("ListItem_Text").GetComponent<TextMeshProUGUI>().text = entity.gameObject.name;
-
-            AddListItemClickListener(button, listItem.transform, entity, listType);
-        }
-
-        private void AddListItemClickListener(Transform button, Transform listItem, GameObject entity,
-            EntityListType listType)
-        {
-            var listItemButton = button.GetComponent<Button>();
-            listItemButton.onClick.AddListener(() => OnListItemClicked(entity, listItem, listType));
         }
 
         private void RemoveListItem(GameObject entity, Transform scrollView)
@@ -305,32 +330,48 @@ namespace UI_Panels
             }
         }
 
-        private void SelectListItem(EntityController entity, EntityListType listType, bool shouldScrollToItem)
+        private void SelectListItem(EntityController entity, UiListType listType, bool shouldScrollToItem)
         {
-            var scrollViewContent = listType == EntityListType.EntityList
-                ? _entitiesScrollViewContent
-                : _watchlistScrollViewContent;
-            var scrollView = listType == EntityListType.EntityList ? _entityListScrollView : _watchlistScrollView;
+            Transform scrollView;
+            Transform scrollViewContent;
+
+            switch (listType)
+            {
+                case UiListType.EntityList:
+                    scrollView = _entityListScrollView;
+                    scrollViewContent = _entitiesScrollViewContent;
+                    break;
+                case UiListType.Watchlist:
+                    scrollView = _watchlistScrollView;
+                    scrollViewContent = _watchlistScrollViewContent;
+                    break;
+                default: throw new ArgumentOutOfRangeException(nameof(listType), listType, null);
+            }
+
             UnselectCurrentlySelectedListItem(listType);
 
             // Find the item in the list that matches the entity game object
-            foreach (Transform listItem in scrollViewContent)
+            for (var i = 0; i < scrollViewContent.childCount; i++)
             {
+                var listItem = scrollViewContent.GetChild(i);
                 if (listItem.name == entity.name)
                 {
-                    // Set the color of the item to the selected color
-                    ChangeListItemUi(listItem, true);
+                    var selectedListItem = new SelectedListItem(listItem, i);
+                    // Update the UI of the selected list item
+                    listItem.GetComponent<UiListItemController<EntityController>>().IsSelected = true;
 
                     // Scroll to the selected item
                     if (shouldScrollToItem) ScrollToSelectedItem(scrollView, listItem);
 
-                    if (listType == EntityListType.EntityList)
+                    switch (listType)
                     {
-                        _currentlySelectedEntityListItem = listItem;
-                    }
-                    else
-                    {
-                        _currentlySelectedWatchlistListItem = listItem;
+                        case UiListType.EntityList:
+                            _currentlySelectedEntityListItem = selectedListItem;
+                            break;
+                        case UiListType.Watchlist:
+                            _currentlySelectedWatchlistListItem = selectedListItem;
+                            break;
+                        default: throw new ArgumentOutOfRangeException(nameof(listType), listType, null);
                     }
 
                     break;
@@ -341,27 +382,43 @@ namespace UI_Panels
             UnselectSelectedWatchlistItem(entity, listType);
         }
 
-        private void UnselectCurrentlySelectedListItem(EntityListType listType)
+        private void UnselectCurrentlySelectedListItem(UiListType listType)
         {
-            var currentlySelectedItem = listType == EntityListType.EntityList
-                ? _currentlySelectedEntityListItem
-                : _currentlySelectedWatchlistListItem;
+            var currentlySelectedItem = listType switch
+            {
+                UiListType.EntityList => _currentlySelectedEntityListItem,
+                UiListType.Watchlist => _currentlySelectedWatchlistListItem,
+                _ => throw new ArgumentOutOfRangeException(nameof(listType), listType, null)
+            };
 
             if (currentlySelectedItem != null)
             {
-                ChangeListItemUi(currentlySelectedItem, false);
+                currentlySelectedItem.ListItem.GetComponent<UiListItemController<EntityController>>().IsSelected =
+                    false;
+            }
+
+            switch (listType)
+            {
+                case UiListType.EntityList:
+                    _currentlySelectedEntityListItem = null;
+                    break;
+                case UiListType.Watchlist:
+                    _currentlySelectedWatchlistListItem = null;
+                    break;
+                default: throw new ArgumentOutOfRangeException(nameof(listType), listType, null);
             }
         }
 
-        private void UnselectSelectedWatchlistItem(EntityController entity, EntityListType listType)
+        private void UnselectSelectedWatchlistItem(EntityController entity, UiListType listType)
         {
             var watchlist = SimulationController.Instance.Watchlist;
-            if (listType == EntityListType.EntityList && _currentlySelectedWatchlistListItem != null)
+            if (listType == UiListType.EntityList && _currentlySelectedWatchlistListItem != null)
             {
                 var watchListContainsSelectedEntity = watchlist.Contains(entity.gameObject);
                 if (!watchListContainsSelectedEntity)
                 {
-                    ChangeListItemUi(_currentlySelectedWatchlistListItem, false);
+                    _currentlySelectedWatchlistListItem.ListItem.GetComponent<UiListItemController<EntityController>>()
+                        .IsSelected = false;
                     _currentlySelectedWatchlistListItem = null;
                 }
             }
@@ -376,26 +433,46 @@ namespace UI_Panels
             scrollRect.verticalNormalizedPosition = scrollValue;
         }
 
-        private void ChangeListItemUi(Transform listItem, bool isSelected)
+        public void AddToSelectedEntityList(GameObject entity, UiListType listType)
         {
-            // Sometimes list item is deleted by the time we arrive here. We want to prevent NullReferenceException
-            if (listItem == null) return;
+            switch (listType)
+            {
+                case UiListType.EntityList:
+                    _selectedEntityListItems.Add(gameObject, entity);
+                    break;
+                case UiListType.Watchlist:
+                    _selectedWatchlistItems.Add(gameObject, entity);
+                    break;
+                default:
+                    throw new ArgumentOutOfRangeException(nameof(listType), listType, null);
+            }
+        }
 
-            var backgroundColor = isSelected ? _lightListItemColor : _darkListItemColor;
-            var textColor = isSelected ? _darkListItemTextColor : _lightListItemTextColor;
-
-            var button = listItem.transform.Find("ListItem_Button");
-            var buttonImage = button.GetComponent<Image>();
-            var text = button.Find("ListItem_Text").GetComponent<TextMeshProUGUI>();
-            buttonImage.color = backgroundColor;
-            text.color = textColor;
-            text.fontStyle = isSelected ? FontStyles.Bold : FontStyles.Normal;
+        public void RemoveFromSelectedEntityList(UiListType listType)
+        {
+            switch (listType)
+            {
+                case UiListType.EntityList:
+                    _selectedEntityListItems.Remove(gameObject);
+                    break;
+                case UiListType.Watchlist:
+                    _selectedWatchlistItems.Remove(gameObject);
+                    break;
+                default:
+                    throw new ArgumentOutOfRangeException(nameof(listType), listType, null);
+            }
         }
     }
 
-    public enum EntityListType
+    internal class SelectedListItem
     {
-        EntityList,
-        Watchlist
+        public Transform ListItem;
+        public int Index;
+
+        public SelectedListItem(Transform listItem, int index)
+        {
+            ListItem = listItem;
+            Index = index;
+        }
     }
 }

@@ -101,6 +101,7 @@ GameObject:
   - component: {fileID: 1096383300280418935}
   - component: {fileID: 6685430629116052414}
   - component: {fileID: -1260035399319425841}
+  - component: {fileID: 1963110596805246860}
   m_Layer: 0
   m_Name: EntityPrefab
   m_TagString: Entity
@@ -259,6 +260,7 @@ MonoBehaviour:
   entityIntervalCoefficient: 4
   healthMeter: 100
   hungerMeter: 0
+  isMating: 0
   reproductionMeter: 0
 --- !u!61 &-1260035399319425841
 BoxCollider2D:
@@ -306,6 +308,18 @@ BoxCollider2D:
   m_AutoTiling: 0
   m_Size: {x: 1, y: 1}
   m_EdgeRadius: 0
+--- !u!114 &1963110596805246860
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 3806511549440813866}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: fdcaced51e4c7fb45b520928811c597c, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: 
 --- !u!1 &3924897766580195477
 GameObject:
   m_ObjectHideFlags: 0
